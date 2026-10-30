@@ -74,19 +74,12 @@ export const purposes = [
   },
 ];
 
-export const gallery = [
-  { image: "ratha-yatra.jpg", caption: "Ratha Yātrā through the streets", size: "large" },
-  { image: "harinam.jpg", caption: "Harinām in the neighbourhood" },
-  { image: "garlands.jpg", caption: "Garlands strung with love" },
-  { image: "children.jpg", caption: "Sunday school for little ones", size: "wide" },
-];
-
 export const journeySteps = [
-  { title: "The first visit", body: "A student from the neighbourhood walks in, curious. Someone greets them warmly and offers prasadam." },
-  { title: "The first kirtan", body: "They sit at the back, hesitant. By the end, they are clapping and singing the holy names." },
-  { title: "Hearing the Gita", body: "Weekly classes begin answering questions they never knew how to ask: Who am I? Why am I here?" },
-  { title: "Taking up chanting", body: "Japa beads in hand, they begin each day with Krishna. Their life slowly fills with peace and purpose." },
-  { title: "Serving others", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
+  { title: "The first visit", image: "prasadam.jpg", body: "A student from the neighbourhood walks in, curious. Someone greets them warmly and offers prasadam." },
+  { title: "The first kirtan", image: "hero-kirtan.jpg", body: "They sit at the back, hesitant. By the end, they are clapping and singing the holy names." },
+  { title: "Hearing the Gita", image: "hall.jpg", body: "Weekly classes begin answering questions they never knew how to ask: Who am I? Why am I here?" },
+  { title: "Taking up chanting", image: "devotees.jpg", body: "Japa beads in hand, they begin each day with Krishna. Their life slowly fills with peace and purpose." },
+  { title: "Serving others", image: "garlands.jpg", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
 ];
 
 export const tiers = [

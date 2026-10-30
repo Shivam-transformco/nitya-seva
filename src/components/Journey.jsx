@@ -1,32 +1,37 @@
-import useReveal from "../hooks/useReveal";
 import { journeySteps } from "../content";
-
-function Step({ number, title, body }) {
-  const [ref, revealClass] = useReveal();
-  return (
-    <li ref={ref} className={revealClass}>
-      <span className="step-num">{number}</span>
-      <h3>{title}</h3>
-      <p>{body}</p>
-    </li>
-  );
-}
+import { imageSrc } from "../lib/assets";
+import Reveal from "./Reveal";
+import SectionHead from "./SectionHead";
 
 export default function Journey() {
   return (
     <section className="journey" id="journey">
       <div className="container">
-        <p className="eyebrow center">Lives touched</p>
-        <h2 className="center">How a seeker becomes a devotee</h2>
-        <p className="sub center">
-          Every step of this journey happens at the temple, and every step is sustained by sevaks like you.
-        </p>
+        <SectionHead
+          eyebrow="Lives touched"
+          title="How a seeker becomes a devotee"
+          sub="Every step of this journey happens at the temple, and every step is sustained by sevaks like you."
+        />
 
-        <ol className="steps">
+        <ol className="timeline">
           {journeySteps.map((s, i) => (
-            <Step key={s.title} number={i + 1} {...s} />
+            <Reveal as="li" key={s.title} className="t-step" delay={i * 110}>
+              <div className="t-marker" aria-hidden="true">
+                <span className="t-dot">{i + 1}</span>
+                <span className="t-line" />
+              </div>
+              <div className="t-media">
+                <img src={imageSrc(s.image)} alt="" loading="lazy" />
+              </div>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </Reveal>
           ))}
         </ol>
+
+        <Reveal className="journey-cta">
+          <a className="btn" href="#join">Be part of this <span className="arrow" aria-hidden="true">→</span></a>
+        </Reveal>
       </div>
     </section>
   );

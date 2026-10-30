@@ -1,17 +1,20 @@
 import { useCallback, useRef, useState } from "react";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
+import Verse from "./components/Verse";
 import Why from "./components/Why";
 import Purpose from "./components/Purpose";
 import Impact from "./components/Impact";
 import Journey from "./components/Journey";
-import Gallery from "./components/Gallery";
 import Tiers from "./components/Tiers";
 import Join from "./components/Join";
 import Faq from "./components/Faq";
 import Footer, { Closing } from "./components/Footer";
+import StickyCta from "./components/StickyCta";
+import useParallax from "./hooks/useParallax";
 
 export default function App() {
+  useParallax();
   const formRef = useRef(null);
   const [amountChoice, setAmountChoice] = useState("");
 
@@ -41,11 +44,11 @@ export default function App() {
       <Nav />
       <main>
         <Hero />
+        <Verse />
         <Why />
         <Purpose onChoose={focusForm} />
         <Impact />
         <Journey />
-        <Gallery />
         <Tiers onChoose={chooseTier} />
         <Join
           formRef={formRef}
@@ -57,6 +60,7 @@ export default function App() {
         <Closing />
       </main>
       <Footer />
+      <StickyCta />
     </>
   );
 }

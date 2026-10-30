@@ -1,44 +1,41 @@
 import { imageSrc } from "../lib/assets";
 
+const moments = [
+  { when: "Every morning", text: "The Lord is woken with love." },
+  { when: "Every evening", text: "The hall fills with kirtan." },
+  { when: "Every week", text: "A new seeker hears about Krishna and slowly finds their way home." },
+];
+
 export default function Hero() {
   return (
-    <section className="hero">
-      <div className="hero-glow" aria-hidden="true"></div>
-      <div className="hero-inner">
+    <section className="hero" id="top">
+      <img className="hero-bg" data-parallax="-0.15" src={imageSrc("hero-kirtan.jpg")} alt="" fetchPriority="high" />
+      <div className="hero-shade" aria-hidden="true" />
+
+      <div className="container">
         <div className="hero-copy">
-          <p className="eyebrow">Hare Krishna · Nitya Seva</p>
-          <h1>
+          <p className="eyebrow rise" style={{ "--d": "0.1s" }}>Hare Krishna · Nitya Seva</p>
+          <h1 className="rise" style={{ "--d": "0.25s" }}>
             Your offering keeps Krishna's home alive, <em>every single day.</em>
           </h1>
-          <p className="lead">
-            Every morning the Lord is woken with love. Every evening the hall fills with kirtan.
-            Every week a new seeker sits down, hears about Krishna for the first time, and slowly finds their way home.
+          <div className="hero-cta rise" style={{ "--d": "0.5s" }}>
+            <a className="btn" href="#join">Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span></a>
+            <a className="btn btn-glass" href="#purpose">See where your seva goes</a>
+          </div>
+        </div>
+
+        <ul className="moments">
+          {moments.map((m, i) => (
+            <li key={m.when} className="rise" style={{ "--d": `${0.75 + i * 0.12}s` }}>
+              <strong>{m.when}</strong>
+              {m.text}
+            </li>
+          ))}
+          <li className="moment-lead rise" style={{ "--d": "1.11s" }}>
             Your monthly Nitya Seva makes all of it possible.
-          </p>
-          <div className="hero-cta">
-            <a className="btn" href="#join">Become a Nitya Sevak</a>
-            <a className="btn btn-ghost" href="#purpose">See where your seva goes</a>
-          </div>
-        </div>
-
-        <div className="hero-photo">
-          <img src={imageSrc("hero-kirtan.jpg")} alt="Devotees singing kirtan in the temple hall" />
-          <div className="hero-badge">
-            <strong>Every evening</strong>
-            <span>Kirtan fills the hall</span>
-          </div>
-          <img className="hero-photo-small" src={imageSrc("deity-worship.jpg")} alt="Ghee lamp and flowers offered at the altar" />
-        </div>
+          </li>
+        </ul>
       </div>
-
-      <figure className="verse">
-        <p className="sanskrit" lang="sa">
-          पत्रं पुष्पं फलं तोयं यो मे भक्त्या प्रयच्छति ।<br />
-          तदहं भक्त्युपहृतमश्नामि प्रयतात्मनः ॥
-        </p>
-        <blockquote>"If one offers Me with love and devotion a leaf, a flower, fruit or water, I will accept it."</blockquote>
-        <figcaption>Bhagavad-gītā 9.26</figcaption>
-      </figure>
     </section>
   );
 }

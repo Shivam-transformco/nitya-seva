@@ -3,6 +3,7 @@ import config from "../config";
 import { formatINR, tiers } from "../content";
 import { lotusSrc } from "../lib/assets";
 import { submitSeva, whatsappLink, whatsappMessage } from "../lib/submit";
+import Reveal from "./Reveal";
 
 const EMPTY_FIELDS = {
   name: "",
@@ -111,7 +112,7 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
           <input name="phone" type="tel" autoComplete="tel" required placeholder="10-digit mobile" inputMode="tel"
             className={cls("phone")} value={fields.phone} onChange={set("phone")} />
         </label>
-        <label>Email
+        <label>Email <span className="opt">(optional)</span>
           <input name="email" type="email" autoComplete="email" placeholder="you@example.com"
             className={cls("email")} value={fields.email} onChange={set("email")} />
         </label>
@@ -191,46 +192,49 @@ export default function Join({ formRef, amountChoice, onAmountChoice, onReset })
 
   return (
     <section className="join" id="join">
-      <div className="container join-grid">
-        <div className="join-copy">
-          <p className="eyebrow">Become a Nitya Sevak</p>
-          <h2>Tell us how you'd like to serve</h2>
-          <p>
-            Share your details and the offering you have in mind. A devotee from ISKCON Jiasarai will personally
-            reach out to you, answer your questions and help you set up your seva.
-          </p>
-          <ul className="assurances">
-            <li>No payment is taken on this website</li>
-            <li>A devotee will contact you within 2 days</li>
-            <li>Receipt for every offering</li>
-            <li>Change or pause your seva anytime</li>
-          </ul>
-          <div className="contact-card">
-            <p>Prefer to talk right away?</p>
-            <a className="btn btn-wa" target="_blank" rel="noopener"
-              href={whatsappLink("Hare Krishna! I would like to know more about Nitya Seva at ISKCON Jiasarai.")}>
-              Message us on WhatsApp
-            </a>
-            <p className="small">or call <a href={tel}>{config.phoneDisplay}</a></p>
+      <div className="container">
+        <Reveal className="join-panel">
+          <div className="join-aside">
+            <img className="join-lotus" src={lotusSrc} alt="" aria-hidden="true" />
+            <p className="eyebrow">Become a Nitya Sevak</p>
+            <h2>Tell us how you'd like to serve</h2>
+            <p>
+              Share your details and the offering you have in mind. A devotee from ISKCON Jiasarai will personally
+              reach out to you, answer your questions and help you set up your seva.
+            </p>
+            <ul className="assurances">
+              <li>No payment is taken on this website</li>
+              <li>A devotee will contact you within 2 days</li>
+              <li>Receipt for every offering</li>
+              <li>Change or pause your seva anytime</li>
+            </ul>
+            <div className="contact-card">
+              <p>Prefer to talk right away?</p>
+              <a className="btn btn-wa btn-small" target="_blank" rel="noopener"
+                href={whatsappLink("Hare Krishna! I would like to know more about Nitya Seva at ISKCON Jiasarai.")}>
+                Message us on WhatsApp
+              </a>
+              <p className="contact-call">or call <a href={tel}>{config.phoneDisplay}</a></p>
+            </div>
           </div>
-        </div>
 
-        {submittedName === null ? (
-          <SevaForm
-            formRef={formRef}
-            amountChoice={amountChoice}
-            onAmountChoice={onAmountChoice}
-            onSubmitted={setSubmittedName}
-          />
-        ) : (
-          <Thanks
-            name={submittedName}
-            onReset={() => {
-              setSubmittedName(null);
-              onReset();
-            }}
-          />
-        )}
+          {submittedName === null ? (
+            <SevaForm
+              formRef={formRef}
+              amountChoice={amountChoice}
+              onAmountChoice={onAmountChoice}
+              onSubmitted={setSubmittedName}
+            />
+          ) : (
+            <Thanks
+              name={submittedName}
+              onReset={() => {
+                setSubmittedName(null);
+                onReset();
+              }}
+            />
+          )}
+        </Reveal>
       </div>
     </section>
   );
