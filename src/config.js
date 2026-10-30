@@ -1,5 +1,5 @@
 // Edit this file to update contact details, form destination and impact numbers.
-window.SEVA_CONFIG = {
+const config = {
   // Google Apps Script web app URL (see apps-script/Code.gs). While empty,
   // form submissions open WhatsApp with the details pre-filled instead.
   formEndpoint: "",
@@ -19,3 +19,5 @@ window.SEVA_CONFIG = {
     { value: "12+", label: "Festivals celebrated annually" },
   ],
 };
+
+export default config;
