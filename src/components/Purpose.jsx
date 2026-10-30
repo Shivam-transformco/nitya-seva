@@ -1,11 +1,15 @@
 import useReveal from "../hooks/useReveal";
 import { purposes } from "../content";
+import { imageSrc } from "../lib/assets";
 
 function PurposeCard({ purpose, onChoose }) {
   const [ref, revealClass] = useReveal();
   return (
     <article ref={ref} className={`card ${purpose.featured ? "card-feature " : ""}${revealClass}`}>
-      <div className="card-icon" aria-hidden="true">{purpose.icon}</div>
+      <div className="card-photo">
+        <img src={imageSrc(purpose.image)} alt="" loading="lazy" />
+        <div className="card-icon" aria-hidden="true">{purpose.icon}</div>
+      </div>
       <h3>{purpose.title}</h3>
       <p className="tagline">{purpose.tagline}</p>
       <p>{purpose.body}</p>

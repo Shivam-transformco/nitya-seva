@@ -13,6 +13,7 @@ Built with React 19 + Vite.
 | `src/config.js` | Phone, WhatsApp, email, address, impact numbers, form endpoint |
 | `src/content.js` | Seva purposes, monthly tiers, journey steps, FAQ, form options |
 | `src/components/` | One component per page section |
+| `public/images/` | Photos used across the page |
 | `src/styles.css` | Colours and layout |
 | `src/lib/submit.js` | Where form submissions are sent |
 | `apps-script/Code.gs` | Google Sheet backend for form submissions |
@@ -62,4 +63,6 @@ git add -A && git commit -m "..." && git push
 - Replace the placeholder phone, WhatsApp number, email and address in `src/config.js`.
 - Replace the placeholder impact numbers in `src/config.js` with real figures.
 - Review the tier names and amounts in `src/content.js`.
-- Consider adding real photos of the Deities, hall, kirtans and festivals.
+- Replace the AI-generated placeholder photos in `public/images/` with real
+  photos from the temple, keeping the same file names (or update the names in
+  `src/content.js`). Roughly 1000px wide, 4:3 JPEGs work best.

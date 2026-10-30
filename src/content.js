@@ -2,6 +2,7 @@ export const purposes = [
   {
     id: "Temple Hall",
     icon: "🛕",
+    image: "hall.jpg",
     title: "The Temple Hall",
     tagline: "A home for the Lord and His devotees",
     body: "The hall where hundreds gather for darshan, classes and kirtan. Upkeep, lighting, sound, cleanliness and space for more seekers to sit and hear.",
@@ -10,6 +11,7 @@ export const purposes = [
   {
     id: "Deity Worship",
     icon: "🪔",
+    image: "deity-worship.jpg",
     title: "Deity Worship",
     tagline: "Waking the Lord with love at dawn",
     body: "Mangala ārati before sunrise, fresh bhoga offerings through the day, fragrant flowers, new outfits and ghee lamps for Their Lordships.",
@@ -18,6 +20,7 @@ export const purposes = [
   {
     id: "Nurturing Devotees",
     icon: "🙏",
+    image: "devotees.jpg",
     title: "Nurturing Devotees",
     tagline: "So many lives, gently turned toward Krishna",
     body: "Students, young professionals and families who came as guests and stayed as devotees. Mentorship, Gita study circles and care for those who have given their lives to service.",
@@ -26,6 +29,7 @@ export const purposes = [
   {
     id: "Kirtan",
     icon: "🥁",
+    image: "kirtan.jpg",
     title: "Kirtan",
     tagline: "The holy name, sung together",
     body: "Weekly kirtans in the hall and Harinām on the streets of Delhi, carrying the Hare Krishna mahā-mantra to everyone who hears it. Mridangas, kartals, harmoniums and sound.",
@@ -34,6 +38,7 @@ export const purposes = [
   {
     id: "Festivals",
     icon: "🌺",
+    image: "festival.jpg",
     title: "Festivals",
     tagline: "Glorifying Krishna with the whole community",
     body: "Janmashtami, Gaura Pūrṇimā, Rādhāṣṭamī, Govardhan Pūjā, Ratha Yātrā: decorations, abhishek, feasts and celebrations that bring thousands closer to the Lord.",
@@ -42,6 +47,7 @@ export const purposes = [
   {
     id: "Preaching & Books",
     icon: "📖",
+    image: "books.jpg",
     title: "Preaching & Books",
     tagline: "Sharing the wisdom of the Gita",
     body: "Bhagavad-gītā As It Is placed in new hands, college and youth programs, and courses that answer life's deepest questions, just as Śrīla Prabhupāda wanted.",
@@ -50,6 +56,7 @@ export const purposes = [
   {
     id: "Prasadam",
     icon: "🍛",
+    image: "prasadam.jpg",
     title: "Prasadam",
     tagline: "Krishna's mercy on every plate",
     body: "Sanctified food served to every guest at programs and the Sunday feast, so that no one leaves the temple without tasting the Lord's mercy.",
@@ -58,12 +65,20 @@ export const purposes = [
   {
     id: "Wherever needed most",
     icon: "💛",
+    image: "diya.jpg",
     title: "Wherever needed most",
     tagline: "Trust the Lord's arrangement",
     body: "Let the temple direct your offering to the service that needs it most that month. Many of our sevaks choose this.",
     cta: "Offer where needed →",
     featured: true,
   },
+];
+
+export const gallery = [
+  { image: "ratha-yatra.jpg", caption: "Ratha Yātrā through the streets", size: "large" },
+  { image: "harinam.jpg", caption: "Harinām in the neighbourhood" },
+  { image: "garlands.jpg", caption: "Garlands strung with love" },
+  { image: "children.jpg", caption: "Sunday school for little ones", size: "wide" },
 ];
 
 export const journeySteps = [

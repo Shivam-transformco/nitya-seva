@@ -1,8 +1,10 @@
 import config from "../config";
+import { imageSrc } from "../lib/assets";
 
 export function Closing() {
   return (
     <section className="closing">
+      <img className="closing-bg" src={imageSrc("diya.jpg")} alt="" loading="lazy" />
       <div className="container narrow center">
         <p className="mantra">
           Hare Krishna Hare Krishna Krishna Krishna Hare Hare<br />

@@ -5,6 +5,7 @@ import Why from "./components/Why";
 import Purpose from "./components/Purpose";
 import Impact from "./components/Impact";
 import Journey from "./components/Journey";
+import Gallery from "./components/Gallery";
 import Tiers from "./components/Tiers";
 import Join from "./components/Join";
 import Faq from "./components/Faq";
@@ -44,6 +45,7 @@ export default function App() {
         <Purpose onChoose={focusForm} />
         <Impact />
         <Journey />
+        <Gallery />
         <Tiers onChoose={chooseTier} />
         <Join
           formRef={formRef}
