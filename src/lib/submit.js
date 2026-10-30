@@ -10,11 +10,7 @@ export function whatsappMessage(d) {
     `Name: ${d.name}`,
     `Phone: ${d.phone}`,
     d.email && `Email: ${d.email}`,
-    d.city && `City: ${d.city}`,
-    `Offering: ${formatINR(d.amount)} (${d.frequency})`,
-    d.purposes && `For: ${d.purposes}`,
-    d.occasion && `Occasion: ${d.occasion}`,
-    `Best time to call: ${d.contactTime}`,
+    `Monthly offering: ${formatINR(d.amount)}`,
     d.message && `Message: ${d.message}`,
   ]
     .filter(Boolean)

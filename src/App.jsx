@@ -13,7 +13,6 @@ import Footer, { Closing } from "./components/Footer";
 export default function App() {
   const formRef = useRef(null);
   const [amountChoice, setAmountChoice] = useState("");
-  const [selectedPurposes, setSelectedPurposes] = useState([]);
 
   const focusForm = useCallback(() => {
     requestAnimationFrame(() => {
@@ -31,17 +30,8 @@ export default function App() {
     focusForm();
   };
 
-  const choosePurpose = (id) => {
-    setSelectedPurposes((list) => (list.includes(id) ? list : [...list, id]));
-    focusForm();
-  };
-
-  const togglePurpose = (id) =>
-    setSelectedPurposes((list) => (list.includes(id) ? list.filter((p) => p !== id) : [...list, id]));
-
   const resetForm = () => {
     setAmountChoice("");
-    setSelectedPurposes([]);
     focusForm();
   };
 
@@ -51,7 +41,7 @@ export default function App() {
       <main>
         <Hero />
         <Why />
-        <Purpose onChoose={choosePurpose} />
+        <Purpose onChoose={focusForm} />
         <Impact />
         <Journey />
         <Tiers onChoose={chooseTier} />
@@ -59,8 +49,6 @@ export default function App() {
           formRef={formRef}
           amountChoice={amountChoice}
           onAmountChoice={setAmountChoice}
-          selectedPurposes={selectedPurposes}
-          onTogglePurpose={togglePurpose}
           onReset={resetForm}
         />
         <Faq />

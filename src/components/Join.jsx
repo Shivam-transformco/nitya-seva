@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import config from "../config";
-import { contactTimes, formatINR, frequencies, occasions, purposes, tiers } from "../content";
+import { formatINR, tiers } from "../content";
 import { lotusSrc } from "../lib/assets";
 import { submitSeva, whatsappLink, whatsappMessage } from "../lib/submit";
 
@@ -8,11 +8,7 @@ const EMPTY_FIELDS = {
   name: "",
   phone: "",
   email: "",
-  city: "",
   customAmount: "",
-  frequency: "Monthly",
-  occasion: "",
-  contactTime: contactTimes[0],
   message: "",
   website: "",
   consent: false,
@@ -44,7 +40,7 @@ function validate(d, isCustom) {
   return { problems, invalid };
 }
 
-function SevaForm({ formRef, amountChoice, onAmountChoice, selectedPurposes, onTogglePurpose, onSubmitted }) {
+function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [invalid, setInvalid] = useState({});
   const [error, setError] = useState(null);
@@ -72,12 +68,8 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, selectedPurposes, onT
       name: fields.name.trim(),
       phone: fields.phone.trim(),
       email: fields.email.trim(),
-      city: fields.city.trim(),
       amount: String(amount || "").trim(),
-      frequency: fields.frequency,
-      purposes: selectedPurposes.join(", "),
-      occasion: fields.occasion,
-      contactTime: fields.contactTime,
+      frequency: "Monthly",
       message: fields.message.trim(),
       website: fields.website,
       consent: fields.consent ? "yes" : "",
@@ -124,13 +116,6 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, selectedPurposes, onT
             className={cls("email")} value={fields.email} onChange={set("email")} />
         </label>
       </div>
-      <div className="form-row">
-        <label>City / Area
-          <input name="city" type="text" autoComplete="address-level2" placeholder="e.g. Hauz Khas, Delhi"
-            value={fields.city} onChange={set("city")} />
-        </label>
-      </div>
-
       <fieldset className="form-row">
         <legend>Monthly offering<span className="req">*</span></legend>
         <div className="chips">
@@ -152,46 +137,6 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, selectedPurposes, onT
             onChange={set("customAmount")} />
         </label>
       </fieldset>
-
-      <fieldset className="form-row">
-        <legend>How often?</legend>
-        <div className="segmented">
-          {frequencies.map((f) => (
-            <label key={f}>
-              <input type="radio" name="frequency" value={f} checked={fields.frequency === f}
-                onChange={set("frequency")} />
-              <span>{f}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="form-row">
-        <legend>I'd love my seva to support</legend>
-        <div className="checks">
-          {purposes.map((p) => (
-            <label key={p.id}>
-              <input type="checkbox" name="purpose" value={p.id} checked={selectedPurposes.includes(p.id)}
-                onChange={() => onTogglePurpose(p.id)} />
-              {p.id}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <div className="form-row two">
-        <label>Offering on an occasion? <span className="opt">(optional)</span>
-          <select name="occasion" value={fields.occasion} onChange={set("occasion")}>
-            <option value="">None</option>
-            {occasions.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </label>
-        <label>Best time to reach you
-          <select name="contactTime" value={fields.contactTime} onChange={set("contactTime")}>
-            {contactTimes.map((t) => <option key={t}>{t}</option>)}
-          </select>
-        </label>
-      </div>
 
       <div className="form-row">
         <label>A few words for us <span className="opt">(optional)</span>
@@ -240,7 +185,7 @@ function Thanks({ name, onReset }) {
   );
 }
 
-export default function Join({ formRef, amountChoice, onAmountChoice, selectedPurposes, onTogglePurpose, onReset }) {
+export default function Join({ formRef, amountChoice, onAmountChoice, onReset }) {
   const [submittedName, setSubmittedName] = useState(null);
   const tel = `tel:${config.phoneDisplay.replace(/\s/g, "")}`;
 
@@ -275,8 +220,6 @@ export default function Join({ formRef, amountChoice, onAmountChoice, selectedPu
             formRef={formRef}
             amountChoice={amountChoice}
             onAmountChoice={onAmountChoice}
-            selectedPurposes={selectedPurposes}
-            onTogglePurpose={onTogglePurpose}
             onSubmitted={setSubmittedName}
           />
         ) : (

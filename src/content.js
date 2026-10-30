@@ -82,23 +82,6 @@ export const tiers = [
   { amount: "11000", name: "Mandir Seva", body: "Stands as a pillar for the temple hall, preaching and every service it holds." },
 ];
 
-export const frequencies = ["Monthly", "Quarterly", "Yearly", "One-time"];
-
-export const occasions = [
-  "Birthday",
-  "Anniversary",
-  "In loving memory",
-  "New beginning (home, job, child)",
-  "Gratitude",
-];
-
-export const contactTimes = [
-  "Anytime",
-  "Morning (9am–12pm)",
-  "Afternoon (12pm–5pm)",
-  "Evening (5pm–9pm)",
-];
-
 export const faqs = [
   {
     q: "Do I pay on this website?",
@@ -114,7 +97,7 @@ export const faqs = [
   },
   {
     q: "Can I offer seva on a birthday, anniversary or in someone's memory?",
-    a: "Yes. Choose the occasion in the form and we will make sure a special offering is made to the Lord on your behalf.",
+    a: "Yes. Mention the occasion in your message and we will make sure a special offering is made to the Lord on your behalf.",
   },
   {
     q: "Can I serve in other ways too?",

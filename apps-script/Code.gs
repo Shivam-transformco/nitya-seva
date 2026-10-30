@@ -11,12 +11,8 @@ const FIELDS = [
   ["name", "Name"],
   ["phone", "Phone"],
   ["email", "Email"],
-  ["city", "City"],
   ["amount", "Amount (₹)"],
   ["frequency", "Frequency"],
-  ["purposes", "Purposes"],
-  ["occasion", "Occasion"],
-  ["contactTime", "Best time to call"],
   ["message", "Message"],
   ["submittedFrom", "Page"],
 ];
