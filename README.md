@@ -45,10 +45,10 @@ submissions in a Google Sheet instead:
 Each submission becomes a row with a `Status` column (starts as `New`) that
 the seva team can update as they call people.
 
-## Deploy on GitHub Pages
+## Deploy
 
-`.github/workflows/deploy.yml` builds and publishes the site on every push to
-`main`. Enable it once in the repo: **Settings → Pages → Source: GitHub Actions**.
+The site is deployed on Vercel from the `main` branch (framework preset: Vite,
+output directory: `dist`).
 
 Git runs inside the personal-dev container (see `~/Self/.personal-dev`):
 
