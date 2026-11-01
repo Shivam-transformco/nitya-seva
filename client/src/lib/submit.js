@@ -17,7 +17,7 @@ export function whatsappMessage(d) {
     .join("\n");
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_URL || "https://nityasevaserver.iskconjiasarai.com";
 
 export async function submitSeva(d) {
   const res = await fetch(`${API_BASE}/api/submit`, {

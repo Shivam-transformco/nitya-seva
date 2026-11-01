@@ -68,10 +68,10 @@ npm run preview           # serve the production build locally
 
 **Client** (`client/.env`):
 ```
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=https://nityasevaserver.iskconjiasarai.com
 ```
-Defaults to `http://localhost:3001` if not set. In production, set this to
-your deployed server URL.
+Defaults to `https://nityasevaserver.iskconjiasarai.com`. For local
+development, override with `VITE_API_URL=http://localhost:3001`.
 
 **Server** (`server/.env`):
 ```
