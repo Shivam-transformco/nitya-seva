@@ -5,9 +5,9 @@ const config = {
   formEndpoint: "",
 
   // Country code + number, digits only, e.g. "919876543210".
-  whatsappNumber: "91XXXXXXXXXX",
-  phoneDisplay: "+91 XXXXX XXXXX",
-  email: "seva@iskconjiasarai.org",
+  whatsappNumber: "919971932510",
+  phoneDisplay: "+91 99719 32510",
+  email: "terkadamba.js@gmail.com",
   address: "ISKCON Jiasarai, Jia Sarai, Near IIT Delhi, New Delhi 110016",
   mapsUrl: "https://maps.google.com/?q=ISKCON+Jia+Sarai+New+Delhi",
 

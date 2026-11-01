@@ -1,3 +1,3 @@
-export const lotusSrc = `${import.meta.env.BASE_URL}lotus.svg`;
+export const lotusSrc = `${import.meta.env.BASE_URL}images/iskcon_logo.png`;
 
 export const imageSrc = (file) => `${import.meta.env.BASE_URL}images/${file}`;
