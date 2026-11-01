@@ -5,7 +5,7 @@ import Reveal from "./Reveal";
 export function Closing() {
   return (
     <section className="closing">
-      <img className="closing-bg" data-parallax="0.2" src={imageSrc("diya.jpg")} alt="" loading="lazy" />
+      <img className="closing-bg" data-parallax="0.2" src={imageSrc("Wherever_Needed_Most.jpeg")} alt="" loading="lazy" />
       <Reveal className="container closing-inner">
         <p className="mantra">
           Hare Krishna Hare Krishna Krishna Krishna Hare Hare
