@@ -173,16 +173,47 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
   );
 }
 
+function Petal({ style }) {
+  return <span className="thanks-petal" style={style} aria-hidden="true" />;
+}
+
 function Thanks({ name, onReset }) {
   const ref = useRef(null);
-  useEffect(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }), []);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
+
+  const petals = Array.from({ length: 12 }, (_, i) => ({
+    "--x": `${Math.random() * 100}%`,
+    "--delay": `${i * 0.18}s`,
+    "--dur": `${2.2 + Math.random() * 1.6}s`,
+    "--drift": `${(Math.random() - 0.5) * 60}px`,
+    "--size": `${8 + Math.random() * 10}px`,
+  }));
+
   return (
-    <div className="thanks" id="seva-form" ref={ref}>
-      <img src={lotusSrc} alt="" width="64" height="64" />
-      <h2>Hare Krishna, {name.split(" ")[0] || "dear devotee"}!</h2>
-      <p>Thank you for stepping forward to serve. A devotee from ISKCON Jiasarai will reach out to you soon.</p>
-      <p className="small">May Śrī Śrī Rādhā-Krishna bless you and your family.</p>
-      <button className="btn btn-ghost" type="button" onClick={onReset}>Submit another</button>
+    <div className={`thanks${visible ? " thanks-visible" : ""}`} id="seva-form" ref={ref}>
+      <div className="thanks-petals" aria-hidden="true">
+        {petals.map((s, i) => <Petal key={i} style={s} />)}
+      </div>
+
+      <div className="thanks-glow" aria-hidden="true" />
+      <img className="thanks-lotus" src={lotusSrc} alt="" width="72" height="72" />
+
+      <div className="thanks-check" aria-hidden="true">
+        <svg viewBox="0 0 52 52" width="52" height="52">
+          <circle className="thanks-check-circle" cx="26" cy="26" r="24" fill="none" stroke="var(--saffron)" strokeWidth="2" />
+          <path className="thanks-check-tick" fill="none" stroke="var(--saffron-dark)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" d="M15 27l7 7 15-15" />
+        </svg>
+      </div>
+
+      <h2 className="thanks-heading">Hare Krishna, {name.split(" ")[0] || "dear devotee"}!</h2>
+      <p className="thanks-msg">Thank you for stepping forward to serve. A devotee from ISKCON Jiasarai will reach out to you soon.</p>
+      <p className="small thanks-bless">May Shri Shri Radha-Krishna bless you and your family.</p>
+      <button className="btn btn-ghost thanks-btn" type="button" onClick={onReset}>Submit another</button>
     </div>
   );
 }

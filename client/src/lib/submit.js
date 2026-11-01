@@ -17,15 +17,14 @@ export function whatsappMessage(d) {
     .join("\n");
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
 export async function submitSeva(d) {
-  if (!config.formEndpoint) {
-    window.open(whatsappLink(whatsappMessage(d)), "_blank", "noopener");
-    return;
-  }
-  // Apps Script web apps don't send CORS headers, so the response is opaque.
-  await fetch(config.formEndpoint, {
+  const res = await fetch(`${API_BASE}/api/submit`, {
     method: "POST",
-    mode: "no-cors",
-    body: new URLSearchParams({ ...d, submittedFrom: window.location.href }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...d, submittedFrom: window.location.href }),
   });
+  const data = await res.json();
+  if (!res.ok || !data.ok) throw new Error(data.error || "Submission failed");
 }
