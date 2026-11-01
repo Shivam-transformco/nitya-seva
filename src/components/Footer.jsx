@@ -12,7 +12,7 @@ export function Closing() {
           <br />
           Hare Rama Hare Rama Rama Rama Hare Hare
         </p>
-        <a className="btn" href="#join">Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span></a>
+        <a className="btn" href="#seva-form">Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span></a>
       </Reveal>
     </section>
   );
@@ -44,7 +44,7 @@ export default function Footer() {
             <p className="footer-links">
               <a href="#purpose">Where seva goes</a>
               <a href="#seva">Seva options</a>
-              <a href="#join">Become a Sevak</a>
+              <a href="#seva-form">Become a Sevak</a>
             </p>
           </div>
         </div>

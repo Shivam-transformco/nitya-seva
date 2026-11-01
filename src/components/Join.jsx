@@ -101,6 +101,7 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
 
   return (
     <form className="form" id="seva-form" ref={formRef} noValidate onSubmit={handleSubmit}>
+      <p className="form-assure">No payment is taken here · A devotee will call you</p>
       <div className="form-row">
         <label>Full name<span className="req">*</span>
           <input name="name" type="text" autoComplete="name" required placeholder="Your name"
@@ -176,7 +177,7 @@ function Thanks({ name, onReset }) {
   const ref = useRef(null);
   useEffect(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }), []);
   return (
-    <div className="thanks" ref={ref}>
+    <div className="thanks" id="seva-form" ref={ref}>
       <img src={lotusSrc} alt="" width="64" height="64" />
       <h2>Hare Krishna, {name.split(" ")[0] || "dear devotee"}!</h2>
       <p>Thank you for stepping forward to serve. A devotee from ISKCON Jiasarai will reach out to you soon.</p>

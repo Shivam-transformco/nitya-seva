@@ -13,9 +13,9 @@ const config = {
 
   // Placeholder figures: replace with the temple's real numbers before launch.
   stats: [
-    { value: "1,000+", label: "Souls introduced to Krishna" },
-    { value: "300+", label: "Devotees nurtured in their journey" },
-    { value: "150+", label: "Kirtans every year" },
+    { value: "2,500+", label: "Souls introduced to Krishna" },
+    { value: "500+", label: "Devotees nurtured in their journey" },
+    { value: "150+", label: "Preaching programs every year" },
     { value: "12+", label: "Festivals celebrated annually" },
   ],
 };

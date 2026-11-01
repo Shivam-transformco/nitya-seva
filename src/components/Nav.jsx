@@ -56,7 +56,7 @@ export default function Nav() {
             </a>
           ))}
         </nav>
-        <a className="btn btn-small nav-cta" href="#join" onClick={close}>Become a Sevak</a>
+        <a className="btn btn-small nav-cta" href="#seva-form" onClick={close}>Become a Sevak</a>
         <button
           type="button"
           className="nav-toggle"

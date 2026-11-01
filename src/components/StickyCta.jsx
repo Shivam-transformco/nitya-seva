@@ -22,7 +22,7 @@ export default function StickyCta() {
 
   const show = pastHero && !formVisible;
   return (
-    <a href="#join" className={`sticky-cta${show ? " show" : ""}`} aria-hidden={!show} tabIndex={show ? 0 : -1}>
+    <a href="#seva-form" className={`sticky-cta${show ? " show" : ""}`} aria-hidden={!show} tabIndex={show ? 0 : -1}>
       Become a Nitya Sevak <span aria-hidden="true">→</span>
     </a>
   );

@@ -20,7 +20,7 @@ export default function App() {
 
   const focusForm = useCallback(() => {
     requestAnimationFrame(() => {
-      document.getElementById("join")?.scrollIntoView({ behavior: "smooth" });
+      (formRef.current ?? document.getElementById("join"))?.scrollIntoView({ behavior: "smooth" });
       const form = formRef.current;
       if (!form) return;
       form.classList.remove("flash");

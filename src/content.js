@@ -85,7 +85,7 @@ export const journeySteps = [
 export const tiers = [
   { amount: "501", name: "Tulasi Seva", body: "Helps offer ghee lamps, incense and fresh tulasi to the Lord." },
   { amount: "1001", name: "Bhoga Seva", body: "Supports the daily bhoga offerings cooked with love for Their Lordships." },
-  { amount: "2100", name: "Kirtan Seva", body: "Keeps weekly kirtans and Harinām flowing, and prasadam for all who join.", popular: true },
+  { amount: "2100", name: "Prachar Seva", body: "Keeps kirtans, Harinām and preaching programs going in the hall and on the streets, with prasadam for everyone who joins.", popular: true },
   { amount: "5001", name: "Utsav Seva", body: "Helps celebrate the great festivals and nurture new devotees all year." },
   { amount: "11000", name: "Mandir Seva", body: "Stands as a pillar for the temple hall, preaching and every service it holds." },
 ];

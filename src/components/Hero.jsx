@@ -14,12 +14,12 @@ export default function Hero() {
 
       <div className="container">
         <div className="hero-copy">
-          <p className="eyebrow rise" style={{ "--d": "0.1s" }}>Hare Krishna · Nitya Seva</p>
+          <p className="eyebrow rise" style={{ "--d": "0.1s" }}>Hare Krishna</p>
           <h1 className="rise" style={{ "--d": "0.25s" }}>
             Your offering keeps Krishna's home alive, <em>every single day.</em>
           </h1>
           <div className="hero-cta rise" style={{ "--d": "0.5s" }}>
-            <a className="btn" href="#join">Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span></a>
+            <a className="btn" href="#seva-form">Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span></a>
             <a className="btn btn-glass" href="#purpose">See where your seva goes</a>
           </div>
         </div>

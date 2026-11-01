@@ -30,7 +30,7 @@ export default function Journey() {
         </ol>
 
         <Reveal className="journey-cta">
-          <a className="btn" href="#join">Be part of this <span className="arrow" aria-hidden="true">→</span></a>
+          <a className="btn" href="#seva-form">Be part of this <span className="arrow" aria-hidden="true">→</span></a>
         </Reveal>
       </div>
     </section>
