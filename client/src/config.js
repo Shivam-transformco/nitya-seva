@@ -8,7 +8,7 @@ const config = {
   whatsappNumber: "919971932510",
   phoneDisplay: "+91 99719 32510",
   email: "terkadamba.js@gmail.com",
-  address: "ISKCON Jiasarai, Jia Sarai, Near IIT Delhi, New Delhi 110016",
+  address: "ISKCON BACE Jiasarai, Jia Sarai, Near IIT Delhi, New Delhi 110016",
   mapsUrl: "https://maps.google.com/?q=ISKCON+Jia+Sarai+New+Delhi",
 
   // Placeholder figures: replace with the temple's real numbers before launch.

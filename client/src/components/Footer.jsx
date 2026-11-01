@@ -26,7 +26,7 @@ export default function Footer() {
           <div className="footer-brand">
             <img src={lotusSrc} alt="" width="40" height="40" />
             <div>
-              <strong>ISKCON Jiasarai</strong>
+              <strong>ISKCON BACE Jiasarai</strong>
               <p>{config.address}</p>
               <a href={config.mapsUrl} target="_blank" rel="noopener">Get directions →</a>
             </div>

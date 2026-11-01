@@ -45,7 +45,7 @@ export default function Nav() {
         <a className="brand" href="#top" onClick={close}>
           <img src={lotusSrc} alt="" width="34" height="34" />
           <span>
-            <strong>ISKCON Jiasarai</strong>
+            <strong>ISKCON BACE Jiasarai</strong>
             <small>Nitya Seva</small>
           </span>
         </a>

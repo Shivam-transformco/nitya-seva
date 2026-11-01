@@ -153,7 +153,7 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
 
       <label className="consent">
         <input type="checkbox" name="consent" required checked={fields.consent} onChange={set("consent")} />
-        <span>I'm happy to be contacted by ISKCON Jiasarai about my seva.</span>
+        <span>I'm happy to be contacted by ISKCON BACE Jiasarai about my seva.</span>
       </label>
 
       {error && (
@@ -211,7 +211,7 @@ function Thanks({ name, onReset }) {
       </div>
 
       <h2 className="thanks-heading">Hare Krishna, {name.split(" ")[0] || "dear devotee"}!</h2>
-      <p className="thanks-msg">Thank you for stepping forward to serve. A devotee from ISKCON Jiasarai will reach out to you soon.</p>
+      <p className="thanks-msg">Thank you for stepping forward to serve. A devotee from ISKCON BACE Jiasarai will reach out to you soon.</p>
       <p className="small thanks-bless">May Shri Shri Radha-Krishna bless you and your family.</p>
       <button className="btn btn-ghost thanks-btn" type="button" onClick={onReset}>Submit another</button>
     </div>
@@ -231,7 +231,7 @@ export default function Join({ formRef, amountChoice, onAmountChoice, onReset })
             <p className="eyebrow">Become a Nitya Sevak</p>
             <h2>Tell us how you'd like to serve</h2>
             <p>
-              Share your details and the offering you have in mind. A devotee from ISKCON Jiasarai will personally
+              Share your details and the offering you have in mind. A devotee from ISKCON BACE Jiasarai will personally
               reach out to you, answer your questions and help you set up your seva.
             </p>
             <ul className="assurances">
@@ -243,7 +243,7 @@ export default function Join({ formRef, amountChoice, onAmountChoice, onReset })
             <div className="contact-card">
               <p>Prefer to talk right away?</p>
               <a className="btn btn-wa btn-small" target="_blank" rel="noopener"
-                href={whatsappLink("Hare Krishna! I would like to know more about Nitya Seva at ISKCON Jiasarai.")}>
+                href={whatsappLink("Hare Krishna! I would like to know more about Nitya Seva at ISKCON BACE Jiasarai.")}>
                 Message us on WhatsApp
               </a>
               <p className="contact-call">or call <a href={tel}>{config.phoneDisplay}</a></p>

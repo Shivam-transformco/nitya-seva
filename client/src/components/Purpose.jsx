@@ -38,7 +38,7 @@ export default function Purpose({ onChoose }) {
           align="split"
           eyebrow="Where your seva goes"
           title="Every rupee becomes an offering"
-          sub="Each of these is something your seva keeps alive, day after day, at ISKCON Jiasarai."
+          sub="Each of these is something your seva keeps alive, day after day, at ISKCON BACE Jiasarai."
         />
         <div className="purpose-grid">
           {purposes.map((p, i) => (

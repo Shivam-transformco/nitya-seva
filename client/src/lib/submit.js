@@ -6,7 +6,7 @@ export const whatsappLink = (text) =>
 
 export function whatsappMessage(d) {
   return [
-    "Hare Krishna! I would like to become a Nitya Sevak at ISKCON Jiasarai.",
+    "Hare Krishna! I would like to become a Nitya Sevak at ISKCON BACE Jiasarai.",
     `Name: ${d.name}`,
     `Phone: ${d.phone}`,
     d.email && `Email: ${d.email}`,
