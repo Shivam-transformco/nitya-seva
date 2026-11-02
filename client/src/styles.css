@@ -282,7 +282,7 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
   background: radial-gradient(900px 400px at 50% 0%, rgba(232, 134, 42, 0.08), transparent 70%), var(--cream);
 }
 .tracker-card {
-  display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(36px, 5vw, 72px); align-items: center;
+  display: grid; grid-template-columns: 0.7fr 1.1fr auto; gap: clamp(36px, 5vw, 72px); align-items: center;
   padding: clamp(36px, 5vw, 64px); border-radius: var(--radius-lg);
   background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
   opacity: 0; transform: translateY(22px);
@@ -329,16 +329,37 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
   margin-top: 6px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
   color: var(--muted); text-align: right;
 }
+.tracker-sewaks {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding-left: clamp(24px, 3vw, 48px); border-left: 1px solid var(--line);
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 0.5s 0.3s var(--ease), transform 0.5s 0.3s var(--ease);
+}
+.tracker-card.visible .tracker-sewaks { opacity: 1; transform: none; }
+.tracker-sewak-count {
+  font-family: var(--serif); font-size: clamp(3rem, 5vw, 4.2rem); font-weight: 600;
+  line-height: 1; color: var(--saffron-dark);
+}
+.tracker-sewak-label {
+  margin-top: 8px; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); text-align: center;
+}
 
 @media (max-width: 900px) {
-  .tracker-card { grid-template-columns: 1fr; gap: 28px; }
-  .tracker-heading { text-align: center; }
+  .tracker-card { grid-template-columns: 1fr 1fr; gap: 28px; }
+  .tracker-heading { text-align: center; grid-column: 1 / -1; }
+  .tracker-sewaks { padding-left: 24px; }
 }
 @media (max-width: 640px) {
   .tracker-section { padding: clamp(48px, 7vw, 72px) 0; }
-  .tracker-card { padding: clamp(24px, 4vw, 36px); }
+  .tracker-card { grid-template-columns: 1fr; padding: clamp(24px, 4vw, 36px); }
   .tracker-value { font-size: 1.1rem; }
   .tracker-bar-bg { height: 12px; }
+  .tracker-sewaks {
+    flex-direction: row; gap: 14px; padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--line);
+  }
+  .tracker-sewak-count { font-size: 2.6rem; }
+  .tracker-sewak-label { text-align: left; margin-top: 0; }
 }
 
 /* Journey */

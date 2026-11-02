@@ -5,7 +5,6 @@ import { formatINR } from "../content";
 const API_BASE = import.meta.env.VITE_API_URL || "https://nityasevaserver.iskconjiasarai.com";
 
 const TARGET_AMOUNT = 145000;
-const TARGET_SEWAKS = 100;
 
 function AnimatedNumber({ value, visible, format, duration = 1400 }) {
   const [display, setDisplay] = useState(0);
@@ -91,15 +90,13 @@ export default function ProgressTracker() {
               target={TARGET_AMOUNT}
               format={formatINR}
               visible={visible}
-              delay={0}
             />
-            <TrackerBar
-              label="Nitya Sewaks engaged"
-              current={stats.totalSewaks}
-              target={TARGET_SEWAKS}
-              visible={visible}
-              delay={200}
-            />
+          </div>
+          <div className="tracker-sewaks">
+            <span className="tracker-sewak-count">
+              <AnimatedNumber value={stats.totalSewaks} visible={visible} />
+            </span>
+            <span className="tracker-sewak-label">Nitya Sewaks and counting</span>
           </div>
         </div>
       </div>
