@@ -43,7 +43,7 @@ export default function Nav() {
     <header className={`nav${scrolled || open ? " solid" : ""}${open ? " open" : ""}`}>
       <div className="container nav-inner">
         <a className="brand" href="#top" onClick={close}>
-          <img src={lotusSrc} alt="" width="34" height="34" />
+          <img src={lotusSrc} alt="" width="42" height="42" />
           <span>
             <strong>ISKCON BACE Jiasarai</strong>
             <small>Nitya Seva</small>
