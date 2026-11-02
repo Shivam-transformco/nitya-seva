@@ -27,6 +27,33 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, db: DB_NAME });
 });
 
+// Aggregated stats for the progress tracker
+app.get("/api/stats", async (_req, res) => {
+  try {
+    const col = db.collection(COLLECTION);
+    const [agg] = await col
+      .aggregate([
+        {
+          $group: {
+            _id: null,
+            totalPledged: { $sum: { $toInt: "$amount" } },
+            totalSewaks: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray();
+
+    res.json({
+      ok: true,
+      totalPledged: agg?.totalPledged || 0,
+      totalSewaks: agg?.totalSewaks || 0,
+    });
+  } catch (err) {
+    console.error("Stats error:", err);
+    res.status(500).json({ ok: false, error: "Server error." });
+  }
+});
+
 // API endpoint for form submissions
 app.post("/api/submit", async (req, res) => {
   try {

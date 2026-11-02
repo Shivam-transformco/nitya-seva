@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
+import ProgressTracker from "./components/ProgressTracker";
 import Verse from "./components/Verse";
 import Why from "./components/Why";
 import Purpose from "./components/Purpose";
@@ -44,6 +45,7 @@ export default function App() {
       <Nav />
       <main>
         <Hero />
+        <ProgressTracker />
         <Verse />
         <Why />
         <Purpose onChoose={focusForm} />

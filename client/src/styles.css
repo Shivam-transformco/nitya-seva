@@ -276,6 +276,71 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 }
 .stat span { font-size: 1.02rem; color: rgba(251, 246, 236, 0.85); }
 
+/* Progress tracker */
+.tracker-section {
+  padding: clamp(64px, 8vw, 100px) 0;
+  background: radial-gradient(900px 400px at 50% 0%, rgba(232, 134, 42, 0.08), transparent 70%), var(--cream);
+}
+.tracker-card {
+  display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(36px, 5vw, 72px); align-items: center;
+  padding: clamp(36px, 5vw, 64px); border-radius: var(--radius-lg);
+  background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow);
+  opacity: 0; transform: translateY(22px);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+}
+.tracker-card.visible { opacity: 1; transform: none; }
+.tracker-heading .eyebrow { margin-bottom: 14px; }
+.tracker-heading h2 { margin: 0; font-size: clamp(1.8rem, 3.2vw, 2.6rem); }
+.tracker-bars { display: grid; gap: 32px; }
+.tracker-item {
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+  transition-delay: var(--delay, 0ms);
+}
+.tracker-card.visible .tracker-item { opacity: 1; transform: none; }
+.tracker-header {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
+}
+.tracker-label {
+  font-weight: 600; font-size: 0.92rem; color: var(--ink);
+}
+.tracker-value {
+  font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--saffron-dark);
+}
+.tracker-of {
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 400; color: var(--muted);
+}
+.tracker-bar-bg {
+  position: relative; height: 14px; border-radius: 999px;
+  background: var(--cream-2); overflow: hidden;
+}
+.tracker-bar-fill {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: linear-gradient(90deg, var(--saffron), var(--gold));
+  width: 0; transition: width 1.6s var(--ease);
+  transition-delay: calc(var(--delay, 0ms) + 200ms);
+}
+.tracker-bar-fill.animate { width: var(--pct); }
+.tracker-bar-fill::after {
+  content: ""; position: absolute; inset: 2px 2px 2px auto; width: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.tracker-pct {
+  margin-top: 6px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--muted); text-align: right;
+}
+
+@media (max-width: 900px) {
+  .tracker-card { grid-template-columns: 1fr; gap: 28px; }
+  .tracker-heading { text-align: center; }
+}
+@media (max-width: 640px) {
+  .tracker-section { padding: clamp(48px, 7vw, 72px) 0; }
+  .tracker-card { padding: clamp(24px, 4vw, 36px); }
+  .tracker-value { font-size: 1.1rem; }
+  .tracker-bar-bg { height: 12px; }
+}
+
 /* Journey */
 .journey { background: var(--cream-2); }
 .timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
