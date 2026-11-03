@@ -283,7 +283,8 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 }
 .tracker-card {
   position: relative; overflow: hidden;
-  padding: clamp(32px, 4.5vw, 56px); border-radius: var(--radius-lg);
+  max-width: 100%;
+  padding: clamp(32px, 5vw, 48px); border-radius: var(--radius-lg);
   background: linear-gradient(160deg, var(--maroon), var(--maroon-dark));
   box-shadow: 0 34px 60px -28px rgba(74, 18, 32, 0.6);
   color: var(--cream);
@@ -292,43 +293,37 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 }
 .tracker-card::before {
   content: ""; position: absolute; top: -40%; right: -10%; width: 420px; height: 420px;
-  border-radius: 50%; background: radial-gradient(circle, rgba(232, 134, 42, 0.15), transparent 70%);
+  border-radius: 50%; background: radial-gradient(circle, rgba(232, 134, 42, 0.12), transparent 70%);
   pointer-events: none;
 }
 .tracker-card.visible { opacity: 1; transform: none; }
 
-.tracker-top { margin-bottom: clamp(24px, 3vw, 36px); }
-.tracker-top .eyebrow { color: var(--gold-soft); margin-bottom: 10px; }
-.tracker-top h2 { color: #fff; margin: 0; font-size: clamp(1.6rem, 2.8vw, 2.2rem); }
-
-.tracker-body {
-  display: grid; grid-template-columns: 1fr auto; gap: clamp(28px, 4vw, 56px); align-items: center;
+.tracker-badge {
+  display: inline-block; padding: 5px 16px; border-radius: 999px; margin-bottom: 22px;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #fff; background: #c0392b;
 }
 
-.tracker-bars {
-  opacity: 0; transform: translateY(12px);
-  transition: opacity 0.5s 0.15s var(--ease), transform 0.5s 0.15s var(--ease);
+.tracker-title {
+  color: #fff; margin: 0 0 28px; font-size: clamp(1.7rem, 4.5vw, 2.3rem); line-height: 1.15;
 }
-.tracker-card.visible .tracker-bars { opacity: 1; transform: none; }
 
-.tracker-amounts { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .tracker-raised {
-  font-family: var(--sans); font-size: clamp(2.2rem, 4vw, 3.2rem); font-weight: 700;
-  line-height: 1; color: var(--gold-soft);
+  margin: 0 0 4px; font-family: var(--sans); font-size: clamp(2rem, 5vw, 2.6rem);
+  font-weight: 700; line-height: 1; color: var(--gold-soft);
 }
-.tracker-target {
-  font-size: 0.88rem; font-weight: 400; color: rgba(251, 246, 236, 0.6);
+.tracker-sub {
+  margin: 0 0 16px; font-size: 0.92rem; color: rgba(251, 246, 236, 0.6);
 }
 
 .tracker-bar-bg {
-  position: relative; height: 20px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12); overflow: hidden;
+  position: relative; height: 14px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15); overflow: hidden;
 }
 .tracker-bar-fill {
   position: absolute; inset: 0; border-radius: 999px;
   background: linear-gradient(90deg, var(--saffron), var(--gold), var(--gold-soft));
-  width: 0; transition: width 1.8s var(--ease);
-  transition-delay: 0.3s;
+  width: 0; transition: width 1.8s var(--ease); transition-delay: 0.3s;
 }
 .tracker-bar-fill.animate { width: var(--pct); }
 .tracker-bar-fill::after {
@@ -339,53 +334,35 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-.tracker-pct {
-  margin-top: 8px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
-  color: rgba(251, 246, 236, 0.55);
+.tracker-stats {
+  display: flex; justify-content: space-between; margin-top: 10px;
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }
+.tracker-stat-left { color: var(--gold-soft); }
+.tracker-stat-right { color: rgba(251, 246, 236, 0.5); }
 
 .tracker-sevaks {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding-left: clamp(24px, 3vw, 48px); border-left: 1px solid rgba(255, 255, 255, 0.15);
-  min-width: 110px; text-align: center;
-  opacity: 0; transform: translateY(12px);
-  transition: opacity 0.5s 0.35s var(--ease), transform 0.5s 0.35s var(--ease);
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
-.tracker-card.visible .tracker-sevaks { opacity: 1; transform: none; }
 .tracker-sevak-count {
-  font-family: var(--sans); font-size: clamp(3.2rem, 5.5vw, 4.6rem); font-weight: 700;
-  line-height: 1; color: var(--gold-soft);
+  font-family: var(--sans); font-size: 2rem; font-weight: 700; line-height: 1; color: var(--gold-soft);
 }
 .tracker-sevak-label {
-  margin-top: 8px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em;
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(251, 246, 236, 0.6);
 }
 
 .tracker-cta {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: clamp(20px, 2.5vw, 32px);
-  font-weight: 600; font-size: 0.95rem; color: var(--gold-soft); text-decoration: none;
-  opacity: 0; transform: translateY(10px);
-  transition: opacity 0.5s 0.5s var(--ease), transform 0.5s 0.5s var(--ease), color 0.2s ease;
+  width: 100%; margin-top: 28px;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  box-shadow: 0 12px 26px -10px rgba(201, 106, 18, 0.65);
 }
-.tracker-card.visible .tracker-cta { opacity: 1; transform: none; }
-.tracker-cta:hover { color: #fff; }
-.tracker-cta .arrow { transition: transform 0.25s var(--ease); }
-.tracker-cta:hover .arrow { transform: translateX(4px); }
 
-@media (max-width: 900px) {
-  .tracker-body { grid-template-columns: 1fr auto; }
-}
 @media (max-width: 640px) {
   .tracker-section { padding: clamp(36px, 5vw, 56px) 0; }
-  .tracker-card { padding: clamp(24px, 4vw, 36px); }
-  .tracker-body { grid-template-columns: 1fr; gap: 0; }
-  .tracker-bar-bg { height: 16px; }
-  .tracker-sevaks {
-    flex-direction: row; gap: 14px; margin-top: 24px; padding: 20px 0 0; border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-  }
-  .tracker-sevak-count { font-size: 2.8rem; }
-  .tracker-sevak-label { text-align: left; margin-top: 0; }
+  .tracker-card { padding: clamp(24px, 4vw, 32px); }
+  .tracker-bar-bg { height: 12px; }
 }
 
 /* Journey */

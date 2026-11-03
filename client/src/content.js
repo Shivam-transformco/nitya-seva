@@ -29,7 +29,7 @@ export const purposes = [
   {
     id: "Kirtan",
     icon: "🥁",
-    image: "HG_Sundar_Gopal_Prji_Kirtan.jpeg",
+    image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan.jpeg",
     title: "Kirtan",
     tagline: "The holy name, sung together",
     body: "Weekly kirtans in the hall and Harinām on the streets of Delhi, carrying the Hare Krishna mahā-mantra to everyone who hears it. Mridangas, kartals, harmoniums and sound.",
@@ -79,7 +79,7 @@ export const journeySteps = [
   { title: "The first kirtan", image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan_2.jpeg", body: "They sit at the back, hesitant. By the end, they are clapping and singing the holy names." },
   { title: "Hearing the Gita", image: "Hearing_the_Gita.jpg", body: "Weekly classes begin answering questions they never knew how to ask: Who am I? Why am I here?" },
   { title: "Taking up chanting", image: "Taking_Up_Chanting.jpg", body: "Japa beads in hand, they begin each day with Krishna. Their life slowly fills with peace and purpose." },
-  { title: "Serving others", image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan.jpeg", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
+  { title: "Serving others", image: "HG_Sundar_Gopal_Prji_Kirtan.jpeg", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
 ];
 
 export const sevas = [

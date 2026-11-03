@@ -54,44 +54,50 @@ export default function ProgressTracker() {
     ? Math.min((stats.totalPledged / TARGET_AMOUNT) * 100, 100)
     : 0;
 
+  const remaining = Math.max(TARGET_AMOUNT - stats.totalPledged, 0);
+
   return (
     <section className="tracker-section" ref={ref}>
       <div className="container">
         <div className={`tracker-card${visible ? " visible" : ""}`}>
-          <div className="tracker-top">
-            <p className="eyebrow">Live progress</p>
-            <h2>{formatINR(TARGET_AMOUNT)} a month keeps the Lord's Sankirtan Movement going</h2>
+          <span className="tracker-badge">Live progress</span>
+
+          <h2 className="tracker-title">
+            Keep the Sankirtan Movement Growing.
+          </h2>
+
+          <p className="tracker-raised">
+            <AnimatedNumber value={stats.totalPledged} visible={visible} format={formatINR} />
+          </p>
+          <p className="tracker-sub">
+            Raised of {formatINR(TARGET_AMOUNT)}
+          </p>
+
+          <div className="tracker-bar-bg">
+            <div
+              className={`tracker-bar-fill${visible ? " animate" : ""}`}
+              style={{ "--pct": `${pct}%` }}
+            />
           </div>
 
-          <div className="tracker-body">
-            <div className="tracker-bars">
-              <div className="tracker-amounts">
-                <span className="tracker-raised">
-                  <AnimatedNumber value={stats.totalPledged} visible={visible} format={formatINR} />
-                </span>
-                <span className="tracker-target">of {formatINR(TARGET_AMOUNT)}</span>
-              </div>
-              <div className="tracker-bar-bg">
-                <div
-                  className={`tracker-bar-fill${visible ? " animate" : ""}`}
-                  style={{ "--pct": `${pct}%` }}
-                />
-              </div>
-              <span className="tracker-pct">
-                <AnimatedNumber value={Math.round(pct)} visible={visible} />% reached
-              </span>
-            </div>
-
-            <div className="tracker-sevaks">
-              <span className="tracker-sevak-count">
-                <AnimatedNumber value={stats.totalSewaks} visible={visible} />
-              </span>
-              <span className="tracker-sevak-label">Nitya Sevaks</span>
-            </div>
+          <div className="tracker-stats">
+            <span className="tracker-stat-left">
+              <AnimatedNumber value={Math.round(pct)} visible={visible} />% achieved
+            </span>
+            <span className="tracker-stat-right">
+              {formatINR(remaining)} to go
+            </span>
           </div>
 
-          <a className="tracker-cta" href="#seva-form">
-            Join them <span className="arrow" aria-hidden="true">→</span>
+          <div className="tracker-sevaks">
+            <span className="tracker-sevak-count">
+              <AnimatedNumber value={stats.totalSewaks} visible={visible} />
+            </span>
+            <span className="tracker-sevak-label">Nitya Sevaks</span>
+          </div>
+
+          <a className="btn tracker-cta" href="#seva-form">
+            Become a Nitya Sevak <span className="arrow" aria-hidden="true">→</span>
           </a>
         </div>
       </div>
