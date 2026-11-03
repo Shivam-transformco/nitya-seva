@@ -98,11 +98,13 @@ export default function ProgressTracker() {
               visible={visible}
             />
           </div>
-          <div className="tracker-sewaks">
-            <span className="tracker-sewak-count">
+          <div className="tracker-sevaks">
+            <span className="tracker-sevak-count">
               <AnimatedNumber value={stats.totalSewaks} visible={visible} />
             </span>
-            <span className="tracker-sewak-label">Nitya Sewaks have joined</span>
+            <span className="tracker-sevak-label">
+              {stats.totalSewaks === 1 ? "Nitya Sevak has pledged" : "Nitya Sevaks have pledged"}
+            </span>
             <a className="tracker-join" href="#seva-form">Be the next <span aria-hidden="true">→</span></a>
           </div>
         </div>

@@ -16,6 +16,7 @@ const EMPTY_FIELDS = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PURPOSE_PREFIX = "I'd like to support:";
 
 function validate(d, isCustom) {
   const problems = [];
@@ -41,12 +42,19 @@ function validate(d, isCustom) {
   return { problems, invalid };
 }
 
-function SevaForm({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, onSubmitted }) {
+function SevaForm({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, purposeNote, onSubmitted }) {
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [invalid, setInvalid] = useState({});
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
   const customRef = useRef(null);
+
+  useEffect(() => {
+    if (!purposeNote) return;
+    setFields((f) =>
+      f.message && !f.message.startsWith(PURPOSE_PREFIX) ? f : { ...f, message: purposeNote.text },
+    );
+  }, [purposeNote]);
 
   const seva = sevas.find((s) => s.id === sevaChoice) ?? sevas[0];
   const isCustom = amountChoice === "custom";
@@ -204,13 +212,15 @@ function Thanks({ name, onReset }) {
     requestAnimationFrame(() => setVisible(true));
   }, []);
 
-  const petals = Array.from({ length: 12 }, (_, i) => ({
-    "--x": `${Math.random() * 100}%`,
-    "--delay": `${i * 0.18}s`,
-    "--dur": `${2.2 + Math.random() * 1.6}s`,
-    "--drift": `${(Math.random() - 0.5) * 60}px`,
-    "--size": `${8 + Math.random() * 10}px`,
-  }));
+  const [petals] = useState(() =>
+    Array.from({ length: 12 }, (_, i) => ({
+      "--x": `${Math.random() * 100}%`,
+      "--delay": `${i * 0.18}s`,
+      "--dur": `${2.2 + Math.random() * 1.6}s`,
+      "--drift": `${(Math.random() - 0.5) * 60}px`,
+      "--size": `${8 + Math.random() * 10}px`,
+    })),
+  );
 
   return (
     <div className={`thanks${visible ? " thanks-visible" : ""}`} id="seva-form" ref={ref}>
@@ -236,7 +246,7 @@ function Thanks({ name, onReset }) {
   );
 }
 
-export default function Join({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, onReset }) {
+export default function Join({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, purposeNote, onReset }) {
   const [submittedName, setSubmittedName] = useState(null);
   const tel = `tel:${config.phoneDisplay.replace(/\s/g, "")}`;
 
@@ -275,6 +285,7 @@ export default function Join({ formRef, amountChoice, onAmountChoice, sevaChoice
               onAmountChoice={onAmountChoice}
               sevaChoice={sevaChoice}
               onSevaChoice={onSevaChoice}
+              purposeNote={purposeNote}
               onSubmitted={setSubmittedName}
             />
           ) : (

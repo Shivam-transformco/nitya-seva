@@ -9,7 +9,7 @@ const moments = [
 export default function Hero() {
   return (
     <section className="hero" id="top">
-      <img className="hero-bg" data-parallax="-0.15" src={imageSrc("Hero_Banner.png")} alt="" fetchPriority="high" />
+      <img className="hero-bg" data-parallax="-0.15" src={imageSrc("Hero_Banner.jpg")} alt="" fetchPriority="high" />
       <div className="hero-shade" aria-hidden="true" />
 
       <div className="container">

@@ -3,14 +3,15 @@ import { faqs } from "../content";
 import { whatsappLink } from "../lib/submit";
 import Reveal from "./Reveal";
 
-function FaqItem({ q, a, open, onToggle }) {
+function FaqItem({ id, q, a, open, onToggle }) {
   return (
     <div className={`faq-item${open ? " open" : ""}`}>
-      <button type="button" className="faq-q" aria-expanded={open} onClick={onToggle}>
+      <button type="button" className="faq-q" id={`${id}-q`} aria-expanded={open} aria-controls={`${id}-a`}
+        onClick={onToggle}>
         {q}
         <span className="faq-icon" aria-hidden="true" />
       </button>
-      <div className="collapse">
+      <div className="collapse" id={`${id}-a`} role="region" aria-labelledby={`${id}-q`} aria-hidden={!open}>
         <div>
           <p>{a}</p>
         </div>
@@ -35,6 +36,7 @@ export default function Faq() {
           {faqs.map((f, i) => (
             <FaqItem
               key={f.q}
+              id={`faq-${i}`}
               {...f}
               open={openIndex === i}
               onToggle={() => setOpenIndex((o) => (o === i ? -1 : i))}

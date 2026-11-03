@@ -19,6 +19,7 @@ export default function App() {
   const formRef = useRef(null);
   const [amountChoice, setAmountChoice] = useState("");
   const [sevaChoice, setSevaChoice] = useState("prachar");
+  const [purposeNote, setPurposeNote] = useState(null);
 
   const focusForm = useCallback(() => {
     requestAnimationFrame(() => {
@@ -37,8 +38,14 @@ export default function App() {
     focusForm();
   };
 
+  const choosePurpose = (purpose) => {
+    setPurposeNote({ text: `I'd like to support: ${purpose}` });
+    focusForm();
+  };
+
   const resetForm = () => {
     setAmountChoice("");
+    setPurposeNote(null);
     focusForm();
   };
 
@@ -50,7 +57,7 @@ export default function App() {
         <ProgressTracker />
         <Verse />
         <Why />
-        <Purpose onChoose={focusForm} />
+        <Purpose onChoose={choosePurpose} />
         <Impact />
         <Journey />
         <Tiers onChoose={chooseSeva} />
@@ -60,6 +67,7 @@ export default function App() {
           onAmountChoice={setAmountChoice}
           sevaChoice={sevaChoice}
           onSevaChoice={setSevaChoice}
+          purposeNote={purposeNote}
           onReset={resetForm}
         />
         <Faq />
