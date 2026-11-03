@@ -18,6 +18,7 @@ export default function App() {
   useParallax();
   const formRef = useRef(null);
   const [amountChoice, setAmountChoice] = useState("");
+  const [sevaChoice, setSevaChoice] = useState("prachar");
 
   const focusForm = useCallback(() => {
     requestAnimationFrame(() => {
@@ -30,7 +31,8 @@ export default function App() {
     });
   }, []);
 
-  const chooseTier = (amount) => {
+  const chooseSeva = (seva, amount) => {
+    setSevaChoice(seva);
     setAmountChoice(amount);
     focusForm();
   };
@@ -51,11 +53,13 @@ export default function App() {
         <Purpose onChoose={focusForm} />
         <Impact />
         <Journey />
-        <Tiers onChoose={chooseTier} />
+        <Tiers onChoose={chooseSeva} />
         <Join
           formRef={formRef}
           amountChoice={amountChoice}
           onAmountChoice={setAmountChoice}
+          sevaChoice={sevaChoice}
+          onSevaChoice={setSevaChoice}
           onReset={resetForm}
         />
         <Faq />

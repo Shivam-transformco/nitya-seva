@@ -48,8 +48,11 @@ function TrackerBar({ label, current, target, format, visible, delay = 0 }) {
           style={{ "--pct": `${pct}%` }}
         />
       </div>
-      <div className="tracker-pct">
-        <AnimatedNumber value={Math.round(pct)} visible={visible} />% reached
+      <div className="tracker-foot">
+        <span>
+          <AnimatedNumber value={Math.round(pct)} visible={visible} />% of the monthly need
+        </span>
+        {current < target && <span>{format ? format(target - current) : target - current} still needed</span>}
       </div>
     </div>
   );
@@ -80,12 +83,15 @@ export default function ProgressTracker() {
       <div className="container">
         <div className={`tracker-card${visible ? " visible" : ""}`}>
           <div className="tracker-heading">
-            <p className="eyebrow">Live progress</p>
-            <h2>Together we are building something beautiful</h2>
+            <p className="eyebrow">Live · This month's seva</p>
+            <h2>{formatINR(TARGET_AMOUNT)} a month keeps the Lord's home running</h2>
+            <p className="tracker-sub">
+              Deity worship, the hall, kirtans, prasadam and preaching. Every pledge brings us closer.
+            </p>
           </div>
           <div className="tracker-bars">
             <TrackerBar
-              label="Monthly seva pledged"
+              label="Pledged so far"
               current={stats.totalPledged}
               target={TARGET_AMOUNT}
               format={formatINR}
@@ -96,7 +102,8 @@ export default function ProgressTracker() {
             <span className="tracker-sewak-count">
               <AnimatedNumber value={stats.totalSewaks} visible={visible} />
             </span>
-            <span className="tracker-sewak-label">Nitya Sewaks and counting</span>
+            <span className="tracker-sewak-label">Nitya Sewaks have joined</span>
+            <a className="tracker-join" href="#seva-form">Be the next <span aria-hidden="true">→</span></a>
           </div>
         </div>
       </div>

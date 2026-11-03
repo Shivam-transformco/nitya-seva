@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import config from "../config";
-import { formatINR, tiers } from "../content";
+import { formatINR, sevas } from "../content";
 import { lotusSrc } from "../lib/assets";
 import { submitSeva, whatsappLink, whatsappMessage } from "../lib/submit";
 import Reveal from "./Reveal";
@@ -41,19 +41,26 @@ function validate(d, isCustom) {
   return { problems, invalid };
 }
 
-function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
+function SevaForm({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, onSubmitted }) {
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [invalid, setInvalid] = useState({});
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
   const customRef = useRef(null);
 
+  const seva = sevas.find((s) => s.id === sevaChoice) ?? sevas[0];
   const isCustom = amountChoice === "custom";
   const amount = isCustom ? fields.customAmount : amountChoice;
 
   const set = (name) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setFields((f) => ({ ...f, [name]: value }));
+  };
+
+  const chooseSeva = (id) => {
+    onSevaChoice(id);
+    const next = sevas.find((s) => s.id === id);
+    if (amountChoice !== "custom" && !next.amounts.includes(amountChoice)) onAmountChoice("");
   };
 
   const chooseChip = (value) => {
@@ -71,7 +78,7 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
       email: fields.email.trim(),
       amount: String(amount || "").trim(),
       frequency: "Monthly",
-      message: fields.message.trim(),
+      message: [`Seva: ${seva.name}`, fields.message.trim()].filter(Boolean).join("\n"),
       website: fields.website,
       consent: fields.consent ? "yes" : "",
     };
@@ -119,12 +126,23 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, onSubmitted }) {
         </label>
       </div>
       <fieldset className="form-row">
+        <legend>Your seva<span className="req">*</span></legend>
+        <div className="seva-toggle">
+          {sevas.map((s) => (
+            <button key={s.id} type="button" aria-pressed={s.id === seva.id}
+              className={`chip${s.id === seva.id ? " active" : ""}`} onClick={() => chooseSeva(s.id)}>
+              {s.name}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="form-row">
         <legend>Monthly offering<span className="req">*</span></legend>
         <div className="chips">
-          {tiers.map((t) => (
-            <button key={t.amount} type="button" className={`chip${amountChoice === t.amount ? " active" : ""}`}
-              onClick={() => chooseChip(t.amount)}>
-              {formatINR(t.amount)}
+          {seva.amounts.map((a) => (
+            <button key={a} type="button" className={`chip${amountChoice === a ? " active" : ""}`}
+              onClick={() => chooseChip(a)}>
+              {formatINR(a)}
             </button>
           ))}
           <button type="button" className={`chip${isCustom ? " active" : ""}`} onClick={() => chooseChip("custom")}>
@@ -218,7 +236,7 @@ function Thanks({ name, onReset }) {
   );
 }
 
-export default function Join({ formRef, amountChoice, onAmountChoice, onReset }) {
+export default function Join({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaChoice, onReset }) {
   const [submittedName, setSubmittedName] = useState(null);
   const tel = `tel:${config.phoneDisplay.replace(/\s/g, "")}`;
 
@@ -255,6 +273,8 @@ export default function Join({ formRef, amountChoice, onAmountChoice, onReset })
               formRef={formRef}
               amountChoice={amountChoice}
               onAmountChoice={onAmountChoice}
+              sevaChoice={sevaChoice}
+              onSevaChoice={onSevaChoice}
               onSubmitted={setSubmittedName}
             />
           ) : (
