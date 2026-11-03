@@ -65,12 +65,6 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaCho
     setFields((f) => ({ ...f, [name]: value }));
   };
 
-  const chooseSeva = (id) => {
-    onSevaChoice(id);
-    const next = sevas.find((s) => s.id === id);
-    if (amountChoice !== "custom" && !next.amounts.includes(amountChoice)) onAmountChoice("");
-  };
-
   const chooseChip = (value) => {
     onAmountChoice(value);
     if (value === "custom") requestAnimationFrame(() => customRef.current?.focus({ preventScroll: true }));
@@ -134,18 +128,7 @@ function SevaForm({ formRef, amountChoice, onAmountChoice, sevaChoice, onSevaCho
         </label>
       </div>
       <fieldset className="form-row">
-        <legend>Your seva<span className="req">*</span></legend>
-        <div className="seva-toggle">
-          {sevas.map((s) => (
-            <button key={s.id} type="button" aria-pressed={s.id === seva.id}
-              className={`chip${s.id === seva.id ? " active" : ""}`} onClick={() => chooseSeva(s.id)}>
-              {s.name}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="form-row">
-        <legend>Monthly offering<span className="req">*</span></legend>
+        <legend>Monthly offering for {seva.name}<span className="req">*</span></legend>
         <div className="chips">
           {seva.amounts.map((a) => (
             <button key={a} type="button" className={`chip${amountChoice === a ? " active" : ""}`}

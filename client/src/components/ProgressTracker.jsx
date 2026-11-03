@@ -4,7 +4,7 @@ import { formatINR } from "../content";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://nityasevaserver.iskconjiasarai.com";
 
-const TARGET_AMOUNT = 145000;
+const TARGET_AMOUNT = 155000;
 
 function AnimatedNumber({ value, visible, format, duration = 1400 }) {
   const [display, setDisplay] = useState(0);
@@ -30,34 +30,6 @@ function AnimatedNumber({ value, visible, format, duration = 1400 }) {
   return <>{format ? format(display) : display}</>;
 }
 
-function TrackerBar({ label, current, target, format, visible, delay = 0 }) {
-  const pct = Math.min((current / target) * 100, 100);
-
-  return (
-    <div className="tracker-item" style={{ "--delay": `${delay}ms` }}>
-      <div className="tracker-header">
-        <span className="tracker-label">{label}</span>
-        <span className="tracker-value">
-          <AnimatedNumber value={current} visible={visible} format={format} />{" "}
-          <span className="tracker-of">of {format ? format(target) : target}</span>
-        </span>
-      </div>
-      <div className="tracker-bar-bg">
-        <div
-          className={`tracker-bar-fill${visible ? " animate" : ""}`}
-          style={{ "--pct": `${pct}%` }}
-        />
-      </div>
-      <div className="tracker-foot">
-        <span>
-          <AnimatedNumber value={Math.round(pct)} visible={visible} />% of the monthly need
-        </span>
-        {current < target && <span>{format ? format(target - current) : target - current} still needed</span>}
-      </div>
-    </div>
-  );
-}
-
 export default function ProgressTracker() {
   const [stats, setStats] = useState({ totalPledged: 0, totalSewaks: 0 });
   const [loaded, setLoaded] = useState(false);
@@ -78,35 +50,49 @@ export default function ProgressTracker() {
 
   const visible = loaded && inView;
 
+  const pct = stats.totalPledged
+    ? Math.min((stats.totalPledged / TARGET_AMOUNT) * 100, 100)
+    : 0;
+
   return (
     <section className="tracker-section" ref={ref}>
       <div className="container">
         <div className={`tracker-card${visible ? " visible" : ""}`}>
-          <div className="tracker-heading">
-            <p className="eyebrow">Live · This month's seva</p>
-            <h2>{formatINR(TARGET_AMOUNT)} a month keeps the Lord's home running</h2>
-            <p className="tracker-sub">
-              Deity worship, the hall, kirtans, prasadam and preaching. Every pledge brings us closer.
-            </p>
+          <div className="tracker-top">
+            <p className="eyebrow">Live progress</p>
+            <h2>{formatINR(TARGET_AMOUNT)} a month keeps the Lord's Sankirtan Movement going</h2>
           </div>
-          <div className="tracker-bars">
-            <TrackerBar
-              label="Pledged so far"
-              current={stats.totalPledged}
-              target={TARGET_AMOUNT}
-              format={formatINR}
-              visible={visible}
-            />
+
+          <div className="tracker-body">
+            <div className="tracker-bars">
+              <div className="tracker-amounts">
+                <span className="tracker-raised">
+                  <AnimatedNumber value={stats.totalPledged} visible={visible} format={formatINR} />
+                </span>
+                <span className="tracker-target">of {formatINR(TARGET_AMOUNT)}</span>
+              </div>
+              <div className="tracker-bar-bg">
+                <div
+                  className={`tracker-bar-fill${visible ? " animate" : ""}`}
+                  style={{ "--pct": `${pct}%` }}
+                />
+              </div>
+              <span className="tracker-pct">
+                <AnimatedNumber value={Math.round(pct)} visible={visible} />% reached
+              </span>
+            </div>
+
+            <div className="tracker-sevaks">
+              <span className="tracker-sevak-count">
+                <AnimatedNumber value={stats.totalSewaks} visible={visible} />
+              </span>
+              <span className="tracker-sevak-label">Nitya Sevaks</span>
+            </div>
           </div>
-          <div className="tracker-sevaks">
-            <span className="tracker-sevak-count">
-              <AnimatedNumber value={stats.totalSewaks} visible={visible} />
-            </span>
-            <span className="tracker-sevak-label">
-              {stats.totalSewaks === 1 ? "Nitya Sevak has pledged" : "Nitya Sevaks have pledged"}
-            </span>
-            <a className="tracker-join" href="#seva-form">Be the next <span aria-hidden="true">→</span></a>
-          </div>
+
+          <a className="tracker-cta" href="#seva-form">
+            Join them <span className="arrow" aria-hidden="true">→</span>
+          </a>
         </div>
       </div>
     </section>
