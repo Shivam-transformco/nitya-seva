@@ -238,7 +238,7 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 .p-card:hover .p-media img { transform: scale(1.06); }
 .p-num {
   position: absolute; top: 16px; left: 16px; padding: 3px 12px; border-radius: 999px;
-  font: 700 0.95rem var(--serif); color: var(--maroon); background: rgba(251, 246, 236, 0.92);
+  font: 700 0.9rem var(--sans); color: var(--maroon); background: rgba(251, 246, 236, 0.92);
 }
 .p-body { flex: 1; display: flex; flex-direction: column; padding: 28px 28px 30px; }
 .p-body h3 { margin: 0 0 6px; }
@@ -272,7 +272,8 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 .stat:first-child { padding-left: 0; border-left: 0; }
 .stat strong {
   display: block; margin-bottom: 14px;
-  font-family: var(--serif); font-size: clamp(3rem, 5.4vw, 4.6rem); font-weight: 600; line-height: 1; color: var(--gold-soft);
+  font-family: var(--sans); font-size: clamp(2.6rem, 4.8vw, 4rem); font-weight: 700; line-height: 1; color: var(--gold-soft);
+  letter-spacing: -0.02em;
 }
 .stat span { font-size: 1.02rem; color: rgba(251, 246, 236, 0.85); }
 
@@ -371,7 +372,7 @@ section { padding: clamp(88px, 11vw, 144px) 0; }
 .t-marker { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
 .t-dot {
   flex-shrink: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
-  font: 700 1.2rem var(--serif); color: var(--saffron-dark);
+  font: 700 1.1rem var(--sans); color: var(--saffron-dark);
   background: var(--cream); border: 1.5px solid var(--saffron);
 }
 .t-step:last-child .t-dot { color: #fff; background: var(--saffron); }
