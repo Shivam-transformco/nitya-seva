@@ -2,9 +2,7 @@ import express from "express";
 import cors from "cors";
 import { MongoClient } from "mongodb";
 
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb+srv://shivamdev7777_db_user:7JrGe0ZyfzaLnSNq@cluster0.nztt4or.mongodb.net/";
+const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "nityaseva";
 const COLLECTION = "submissions";
 const PORT = process.env.PORT || 3001;
