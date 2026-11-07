@@ -4,6 +4,7 @@ import type {
   AuditLogDoc,
   CounterAdjustmentDoc,
   CounterDoc,
+  CounterSettingsDoc,
   FollowupDoc,
   LegacySubmissionDoc,
   NotificationDoc,
@@ -51,6 +52,7 @@ export const collections = {
   auditLogs: collection<AuditLogDoc>("auditLogs"),
   counters: collection<CounterDoc>("counters"),
   counterAdjustments: collection<CounterAdjustmentDoc>("counterAdjustments"),
+  settings: collection<CounterSettingsDoc>("settings"),
   rateLimits: collection<RateLimitDoc>("rateLimits"),
   legacySubmissions: collection<LegacySubmissionDoc>("submissions"),
 };

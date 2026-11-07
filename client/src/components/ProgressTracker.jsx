@@ -4,7 +4,8 @@ import { formatINR } from "../content";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://nityasevaserver.iskconjiasarai.com";
 
-const TARGET_AMOUNT = 155000;
+// Used until /api/stats answers; admins set the real goal in the staff portal.
+const DEFAULT_TARGET = 155000;
 
 function AnimatedNumber({ value, visible, format, duration = 1400 }) {
   const [display, setDisplay] = useState(0);
@@ -31,7 +32,7 @@ function AnimatedNumber({ value, visible, format, duration = 1400 }) {
 }
 
 export default function ProgressTracker() {
-  const [stats, setStats] = useState({ totalPledged: 0, totalSewaks: 0 });
+  const [stats, setStats] = useState({ totalPledged: 0, totalSewaks: 0, target: DEFAULT_TARGET });
   const [loaded, setLoaded] = useState(false);
   const [ref, inView] = useInView({ threshold: 0.2 });
   const fetched = useRef(false);
@@ -42,7 +43,7 @@ export default function ProgressTracker() {
     fetch(`${API_BASE}/api/stats`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setStats({ totalPledged: d.totalPledged, totalSewaks: d.totalSewaks });
+        if (d.ok) setStats({ totalPledged: d.totalPledged, totalSewaks: d.totalSewaks, target: d.target || DEFAULT_TARGET });
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -51,10 +52,10 @@ export default function ProgressTracker() {
   const visible = loaded && inView;
 
   const pct = stats.totalPledged
-    ? Math.min((stats.totalPledged / TARGET_AMOUNT) * 100, 100)
+    ? Math.min((stats.totalPledged / stats.target) * 100, 100)
     : 0;
 
-  const remaining = Math.max(TARGET_AMOUNT - stats.totalPledged, 0);
+  const remaining = Math.max(stats.target - stats.totalPledged, 0);
 
   return (
     <section className="tracker-section" ref={ref}>
@@ -70,7 +71,7 @@ export default function ProgressTracker() {
             <AnimatedNumber value={stats.totalPledged} visible={visible} format={formatINR} />
           </p>
           <p className="tracker-sub">
-            Raised of {formatINR(TARGET_AMOUNT)}
+            Raised of {formatINR(stats.target)}
           </p>
 
           <div className="tracker-bar-bg">

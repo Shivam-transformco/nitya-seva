@@ -6,6 +6,9 @@ export interface Totals {
   sevaks: number;
 }
 
+/** Goal shown before an admin sets one (the figure the website launched with). */
+export const DEFAULT_TARGET = 155_000;
+
 export const notFlagged: Filter<PledgeDoc> = { flag: { $exists: false } };
 
 /** Pledges that count towards the public counter: in progress, genuine, and not hidden by an admin. */

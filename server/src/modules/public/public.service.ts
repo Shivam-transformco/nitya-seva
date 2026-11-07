@@ -24,9 +24,9 @@ export async function submit(input: SubmitInput, meta: { ip: string; userAgent: 
 }
 
 /** Live counter. Which pledges count, and any manual adjustments, are decided in the counter module. */
-export async function stats(): Promise<{ totalPledged: number; totalSewaks: number }> {
-  const { amount, sevaks } = await counter.publicTotals();
-  return { totalPledged: amount, totalSewaks: sevaks };
+export async function stats(): Promise<{ totalPledged: number; totalSewaks: number; target: number }> {
+  const { amount, sevaks, target } = await counter.publicTotals();
+  return { totalPledged: amount, totalSewaks: sevaks, target };
 }
 
 export async function health(): Promise<boolean> {

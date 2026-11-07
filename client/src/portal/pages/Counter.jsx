@@ -67,6 +67,64 @@ function AdjustmentForm({ initial, submitLabel, onSubmit, onCancel }) {
   );
 }
 
+function TargetCard({ target, updatedAt, onChanged }) {
+  const [value, setValue] = useState(String(target));
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    const next = Number(value);
+    if (!Number.isInteger(next) || next < 1) return setError(new Error("Enter a whole number of rupees above zero."));
+    setBusy(true);
+    try {
+      await api("/counter/target", { method: "PUT", body: { target: next } });
+      setSaved(true);
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="p-card">
+      <h2>Monthly goal</h2>
+      <p className="p-muted">
+        The website shows “Raised of {formatINR(target)}” and fills the progress bar towards it.
+        {updatedAt && ` Last changed ${formatDate(updatedAt)}.`}
+      </p>
+      <form className="p-form" onSubmit={submit} aria-label="Monthly goal">
+        <Field label="Goal per month (₹)">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            required
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setSaved(false);
+            }}
+          />
+        </Field>
+        <ErrorNote error={error} />
+        <div className="btn-row">
+          <button className="pbtn" disabled={busy || Number(value) === target}>
+            {busy ? "Saving…" : "Save goal"}
+          </button>
+          {saved && <span className="p-muted" role="status">Saved.</span>}
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function AdjustmentRow({ item, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -157,8 +215,13 @@ export default function Counter() {
               <span>a month from</span>
               <strong data-testid="displayed-sevaks">{plural(c.displayed.sevaks, "sevak")}</strong>
             </div>
+            <p className="p-muted" data-testid="goal-progress">
+              {Math.min(100, Math.round((c.displayed.amount / c.target) * 100))}% of the {formatINR(c.target)} monthly goal
+            </p>
             <p className="p-hint">The website can take up to a minute to show changes.</p>
           </section>
+
+          <TargetCard target={c.target} updatedAt={c.targetUpdatedAt} onChanged={reload} />
 
           <section className="p-card">
             <h2>How it adds up</h2>

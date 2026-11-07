@@ -6,7 +6,15 @@ import { notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
 import * as repo from "./counter.repository.js";
-import { adjustmentTotals, countedPledges, displayedTotals, flaggedPledges, hiddenPledges, type Totals } from "./counter.rules.js";
+import {
+  adjustmentTotals,
+  countedPledges,
+  DEFAULT_TARGET,
+  displayedTotals,
+  flaggedPledges,
+  hiddenPledges,
+  type Totals,
+} from "./counter.rules.js";
 import type { createAdjustmentBody, updateAdjustmentBody } from "./counter.schema.js";
 
 /** Sum of amounts and distinct sevaks over the matching pledges. */
@@ -21,19 +29,24 @@ async function pledgeTotals(filter: Filter<PledgeDoc>): Promise<Totals & { pledg
   return agg ?? { amount: 0, sevaks: 0, pledges: 0 };
 }
 
+async function target(): Promise<number> {
+  return (await repo.getSettings())?.target ?? DEFAULT_TARGET;
+}
+
 /** What the public site shows. */
-export async function publicTotals(): Promise<Totals> {
-  const [real, adjustments] = await Promise.all([pledgeTotals(countedPledges), repo.listActive()]);
-  return displayedTotals(real, adjustments);
+export async function publicTotals(): Promise<Totals & { target: number }> {
+  const [real, adjustments, goal] = await Promise.all([pledgeTotals(countedPledges), repo.listActive(), target()]);
+  return { ...displayedTotals(real, adjustments), target: goal };
 }
 
 /** How the public number is made up, for the admin counter page. */
 export async function breakdown() {
-  const [counted, hidden, flagged, adjustments] = await Promise.all([
+  const [counted, hidden, flagged, adjustments, settings] = await Promise.all([
     pledgeTotals(countedPledges),
     pledgeTotals(hiddenPledges),
     pledgeTotals(flaggedPledges),
     repo.list(),
+    repo.getSettings(),
   ]);
   return {
     counted,
@@ -41,7 +54,16 @@ export async function breakdown() {
     flagged,
     adjustments: { ...adjustmentTotals(adjustments), items: adjustments },
     displayed: displayedTotals(counted, adjustments),
+    target: settings?.target ?? DEFAULT_TARGET,
+    targetUpdatedAt: settings?.updatedAt ?? null,
   };
+}
+
+export async function setTarget(actor: Actor, value: number) {
+  const before = await target();
+  const doc = await repo.saveTarget(value, actor.id);
+  await audit.record(actor.id, "counter.target_update", "settings", null, { from: before, to: value });
+  return { target: doc.target, targetUpdatedAt: doc.updatedAt };
 }
 
 export async function createAdjustment(actor: Actor, input: z.infer<typeof createAdjustmentBody>) {

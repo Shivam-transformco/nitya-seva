@@ -49,7 +49,7 @@ async function choosePassword(page, current, next) {
 
 test("the migration carried the old submission into the new model", async ({ request }) => {
   const stats = await (await request.get(`${API_URL}/api/stats`)).json();
-  expect(stats).toEqual({ ok: true, totalPledged: 501, totalSewaks: 1 });
+  expect(stats).toEqual({ ok: true, totalPledged: 501, totalSewaks: 1, target: 155000 });
 });
 
 test("a visitor offers seva on the public site", async ({ page }) => {
@@ -66,7 +66,7 @@ test("a visitor offers seva on the public site", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Hare Krishna, Radha/ })).toBeVisible();
 
   const stats = await (await page.request.get(`${API_URL}/api/stats`)).json();
-  expect(stats).toEqual({ ok: true, totalPledged: 501 + SEVAK.amount, totalSewaks: 2 });
+  expect(stats).toEqual({ ok: true, totalPledged: 501 + SEVAK.amount, totalSewaks: 2, target: 155000 });
 });
 
 test("the portal opens with or without the trailing slash", async ({ page }) => {
@@ -262,6 +262,26 @@ test("an admin hides a real pledge and adjusts the counter by hand", async () =>
   expect(await publicStats(admin)).toMatchObject({ totalPledged: 900, totalSewaks: 4 });
 
   expect((await devotee.request.get(`${API_URL}/api/counter`)).status()).toBe(403);
+});
+
+test("an admin changes the monthly goal and the website follows", async () => {
+  await expect(admin.getByTestId("goal-progress")).toHaveText("1% of the ₹1,55,000 monthly goal");
+  const goal = admin.getByRole("form", { name: "Monthly goal" });
+  await goal.getByLabel(/^Goal per month/).fill("10000");
+  await goal.getByRole("button", { name: "Save goal" }).click();
+  await expect(goal.getByRole("status")).toHaveText("Saved.");
+  await expect(admin.getByTestId("goal-progress")).toHaveText("9% of the ₹10,000 monthly goal");
+  expect(await publicStats(admin)).toMatchObject({ totalPledged: 900, target: 10000 });
+
+  const site = await admin.context().newPage();
+  await site.goto("/");
+  await site.locator(".tracker-section").scrollIntoViewIfNeeded();
+  await expect(site.locator(".tracker-sub")).toHaveText("Raised of ₹10,000");
+  await expect(site.locator(".tracker-stat-right")).toHaveText("₹9,100 to go");
+  await site.close();
+
+  const res = await devotee.request.put(`${API_URL}/api/counter/target`, { data: { target: 1 } });
+  expect(res.status()).toBe(403);
 });
 
 test("the daily job only runs with its secret", async ({ request }) => {

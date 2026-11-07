@@ -113,6 +113,7 @@ Types: `pledge.new` (all admins), `pledge.assigned` (assignee), `followup.due` (
 
 ### Support collections
 - `counters`: `{ _id: "receipt-2026", seq }`
+- `settings`: `{ _id: "counter", target, updatedBy, updatedAt }`, the public counter's monthly goal.
 - `rateLimits`: `{ _id: "<bucket>:<key>", count, expiresAt }` with a TTL index.
 - `submissions`: the old collection, kept read-only after migration.
 
@@ -179,7 +180,7 @@ Vercel Hobby allows one cron run per day: `30 3 * * *` UTC (9:00 IST) calls `/ap
 
 ## 10. The public counter
 
-`/api/stats` (`totalPledged`, `totalSewaks`) is decided in one place, `modules/counter/`:
+`/api/stats` (`totalPledged`, `totalSewaks`, `target`) is decided in one place, `modules/counter/`:
 
 ```
 shown = genuine pledges in progress − hidden ones + active manual adjustments   (never below 0)
@@ -190,10 +191,11 @@ shown = genuine pledges in progress − hidden ones + active manual adjustments 
 | **Mark as not genuine** (`flag`: spam, test, duplicate, other) | Anyone who can see the pledge | Left out of the counter, pledge lists (except the "Not genuine" tab), due reminders, dashboard numbers. No payments. Reversible. |
 | **Hide from counter** (`hiddenFromCounter`) | Admin | A genuine pledge stays in follow-ups and reports but isn't counted publicly. |
 | **Manual adjustment** (`counterAdjustments`) | Admin | Labelled `+/-` amount and sevak count, e.g. offline sevaks. Can be paused, edited or deleted. |
+| **Monthly goal** (`settings.target`) | Admin | The "Raised of ₹…" figure the progress bar fills towards. ₹1,55,000 until set. |
 
-Sevaks are counted once each across their counted pledges. Every flag, hide and adjustment change is written to `auditLogs` with who did it. The admin **Counter** page shows the breakdown. `/api/stats` is cached for up to 60 seconds, so the site lags changes by about a minute.
+Sevaks are counted once each across their counted pledges. Every flag, hide, adjustment and goal change is written to `auditLogs` with who did it. The admin **Counter** page shows the breakdown. `/api/stats` is cached for up to 60 seconds, so the site lags changes by about a minute.
 
-API: `PUT/DELETE /api/pledges/:id/flag`, `PATCH /api/pledges/:id/counter`, `GET /api/counter`, `POST/PATCH/DELETE /api/counter/adjustments[/:id]`. List filters: `?flagged=true`, `?hidden=true`.
+API: `PUT/DELETE /api/pledges/:id/flag`, `PATCH /api/pledges/:id/counter`, `GET /api/counter`, `PUT /api/counter/target`, `POST/PATCH/DELETE /api/counter/adjustments[/:id]`. List filters: `?flagged=true`, `?hidden=true`.
 
 ## 11. Staff portal and end-to-end tests
 

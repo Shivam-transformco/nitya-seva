@@ -142,6 +142,15 @@ export interface CounterDoc {
   seq: number;
 }
 
+/** Settings for the public counter; a single document with `_id: "counter"`. */
+export interface CounterSettingsDoc {
+  _id: "counter";
+  /** Monthly goal in whole rupees, shown as "Raised of ₹…". */
+  target: number;
+  updatedBy: ObjectId;
+  updatedAt: Date;
+}
+
 export interface RateLimitDoc {
   _id: string;
   count: number;

@@ -13,6 +13,8 @@ export const createAdjustmentBody = z
   })
   .refine((b) => b.amount !== 0 || b.sevaks !== 0, { message: "change the amount or the sevak count", path: ["amount"] });
 
+export const targetBody = z.object({ target: z.number().int().min(1).max(1_00_00_000) });
+
 export const updateAdjustmentBody = z
   .object({
     label: z.string().trim().min(1).max(100),

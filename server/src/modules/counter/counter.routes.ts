@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, idParam, ok } from "../../lib/http.js";
 import { actorOf } from "../../middleware/auth.js";
-import { createAdjustmentBody, updateAdjustmentBody } from "./counter.schema.js";
+import { createAdjustmentBody, targetBody, updateAdjustmentBody } from "./counter.schema.js";
 import * as service from "./counter.service.js";
 
 /** Mounted behind requireRole("admin"). */
@@ -9,6 +9,10 @@ export const counterRouter = Router();
 
 counterRouter.get("/", async (_req, res) => {
   ok(res, await service.breakdown());
+});
+
+counterRouter.put("/target", async (req, res) => {
+  ok(res, await service.setTarget(actorOf(req), body(req, targetBody).target));
 });
 
 counterRouter.post("/adjustments", async (req, res) => {

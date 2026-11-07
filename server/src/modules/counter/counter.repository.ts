@@ -1,6 +1,16 @@
 import { ObjectId } from "mongodb";
 import { collections } from "../../db/mongo.js";
-import type { CounterAdjustmentDoc } from "../../domain/types.js";
+import type { CounterAdjustmentDoc, CounterSettingsDoc } from "../../domain/types.js";
+
+export async function getSettings(): Promise<CounterSettingsDoc | null> {
+  return (await collections.settings()).findOne({ _id: "counter" });
+}
+
+export async function saveTarget(target: number, by: ObjectId): Promise<CounterSettingsDoc> {
+  const doc: CounterSettingsDoc = { _id: "counter", target, updatedBy: by, updatedAt: new Date() };
+  await (await collections.settings()).replaceOne({ _id: "counter" }, doc, { upsert: true });
+  return doc;
+}
 
 export async function list(): Promise<CounterAdjustmentDoc[]> {
   return (await collections.counterAdjustments()).find().sort({ createdAt: -1 }).toArray();
