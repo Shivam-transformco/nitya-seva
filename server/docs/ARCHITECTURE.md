@@ -37,9 +37,11 @@ Notifications are in-portal only for now. Payments are recorded by hand (no gate
 ```
 server/
   src/
-    index.ts              Vercel entry: export default app
+    index.ts              Builds the Express app (middleware, routes, errors) and
+                          default-exports it as the Vercel function. Vercel's Express
+                          preset needs the entry to import express itself, and would
+                          pick a src/app.ts over it, so keep both in this one file.
     dev.ts                Local entry: app.listen
-    app.ts                Builds the Express app (middleware, routes, errors)
     config/env.ts         Validated environment
     db/mongo.ts           Cached client, typed collections
     db/indexes.ts         Index definitions (run by script)
@@ -162,7 +164,7 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 - **Session cookie**: `httpOnly`, `Secure`, `SameSite=Lax`, 12-hour lifetime. The portal is served from `nityaseva.iskconjiasarai.com/portal/`, the same *site* as the API, so Lax cookies work while still blocking cross-site requests. (Vercel `*.vercel.app` previews are a different site, so signing in from a client preview won't work; use local dev for that.)
 - **CORS**: only origins in `ALLOWED_ORIGINS`, with credentials.
 - **Rate limits** stored in MongoDB so they hold across serverless instances.
-- **Helmet** default headers; JSON body limit 20 KB.
+- **Security headers** (`middleware/securityHeaders.ts`): Helmet's defaults, with `default-src 'none'` and no framing since the API never serves pages. JSON body limit 20 KB.
 - **PII**: sevak phone numbers are only visible to logged-in staff. Follow-up devotees only see their assigned pledges.
 - **Secrets** only in Vercel environment variables. Rotate the MongoDB password that was once committed to git history.
 
