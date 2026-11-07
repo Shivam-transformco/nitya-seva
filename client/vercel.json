@@ -1,0 +1,3 @@
+{
+  "redirects": [{ "source": "/portal", "destination": "/portal/", "permanent": true }]
+}

@@ -1,5 +1,6 @@
 import config from "../config";
 import { formatINR } from "../content";
+import { API_BASE } from "./apiBase";
 
 export const whatsappLink = (text) =>
   `https://wa.me/${config.whatsappNumber}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
@@ -16,8 +17,6 @@ export function whatsappMessage(d) {
     .filter(Boolean)
     .join("\n");
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || "https://nityasevaserver.iskconjiasarai.com";
 
 export async function submitSeva(d) {
   const res = await fetch(`${API_BASE}/api/submit`, {
