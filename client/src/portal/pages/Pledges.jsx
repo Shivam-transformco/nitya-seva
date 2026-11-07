@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { qs, useApi } from "../api";
-import { FLAG_LABELS, STATUSES, STATUS_LABELS, dueLabel, formatDate, formatINR, plural } from "../format";
+import { FLAG_LABELS, MODE_LABELS, STATUSES, STATUS_LABELS, dueLabel, formatDate, formatINR, plural } from "../format";
 import { Link, navigate } from "../router";
-import { DueBadge, Empty, ErrorNote, Loading, PageHead, Pager, StatusBadge } from "../ui";
+import { DueBadge, Empty, ErrorNote, Loading, ModeBadge, PageHead, Pager, StatusBadge } from "../ui";
 
-const FILTER_KEYS = ["status", "assignedTo", "due", "flagged", "hidden", "q", "sort", "page"];
+const FILTER_KEYS = ["status", "assignedTo", "due", "flagged", "hidden", "mode", "mandate", "q", "sort", "page"];
 
 const CLEAR_VIEW = { due: "", flagged: "", hidden: "" };
 const VIEWS = [
@@ -30,6 +30,7 @@ export function PledgeRows({ items, showAssignee }) {
             <span className="row-amount">{formatINR(p.amount)}<small>/mo</small></span>
             <span className="row-meta">
               <StatusBadge status={p.status} />
+              {!p.flag && <ModeBadge setup={p.paymentSetup} />}
               {p.flag && <span className="badge badge-flag">{FLAG_LABELS[p.flag.reason]}</span>}
               {!p.flag && p.hiddenFromCounter && <span className="badge badge-hidden">Off counter</span>}
               {!p.flag && <DueBadge due={dueLabel(p.nextFollowUpAt)} />}
@@ -91,6 +92,22 @@ export default function Pledges({ params, user }) {
               {STATUS_LABELS[s]}
             </option>
           ))}
+        </select>
+        <select
+          aria-label="How they pay"
+          value={filters.mandate === "submitted" ? "pending" : filters.mode}
+          onChange={(e) =>
+            update(e.target.value === "pending" ? { mode: "", mandate: "submitted" } : { mode: e.target.value, mandate: "" })
+          }
+        >
+          <option value="">Any payment mode</option>
+          {Object.entries(MODE_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+          <option value="pending">Mandate not active yet</option>
+          <option value="none">Not recorded</option>
         </select>
         {isAdmin && (
           <select aria-label="Assigned to" value={filters.assignedTo} onChange={(e) => update({ assignedTo: e.target.value })}>

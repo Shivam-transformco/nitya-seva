@@ -30,6 +30,13 @@ reportsRouter.get("/collections", async (req, res) => {
   ok(res, { from, to, months: await service.monthlyCollections(from, to) });
 });
 
+reportsRouter.get("/payment-modes", async (req, res) => {
+  const q = query(req, monthRange);
+  const to = q.to ?? istMonth();
+  const from = q.from ?? istMonth(new Date(Date.now() - 365 * DAY_MS));
+  ok(res, { from, to, ...(await service.paymentModes(from, to)) });
+});
+
 reportsRouter.get("/activity", async (req, res) => {
   const q = query(req, dateRange);
   const to = q.to ?? new Date();

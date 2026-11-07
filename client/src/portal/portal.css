@@ -206,6 +206,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .p-banner-flag { background: #fbe9e7; border-color: #f2c4bd; color: #8a1c12; }
 .badge-flag { background: #fbe9e7; color: #8a1c12; }
 .badge-hidden { background: #eef2f7; color: #234e7a; }
+.badge-mode { background: #eef0fb; color: #33408a; }
+.badge-mode-manual { background: #f1efec; color: #5b544d; }
+.badge-mandate-active { background: #e3f2e7; color: #1d5b33; }
+.badge-mandate-submitted { background: #f4eed8; color: #6f5a12; }
+.badge-mandate-rejected, .badge-mandate-cancelled { background: #fbe9e7; color: #8a1c12; }
 .p-switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; }
 .p-switch input { width: 20px; height: 20px; accent-color: var(--maroon); }
 .counter-hero { display: grid; gap: 6px; background: linear-gradient(135deg, var(--paper), var(--cream-2)); }

@@ -22,7 +22,29 @@ export const OUTCOME_LABELS = {
 
 export const CHANNEL_LABELS = { call: "Phone call", whatsapp: "WhatsApp", visit: "In person", note: "Note" };
 
-export const METHOD_LABELS = { upi: "UPI", cash: "Cash", bank: "Bank transfer", cheque: "Cheque", other: "Other" };
+export const METHOD_LABELS = {
+  ecs: "ECS auto-debit",
+  upi_autopay: "UPI AutoPay",
+  upi: "UPI",
+  cash: "Cash",
+  bank: "Bank transfer",
+  cheque: "Cheque",
+  other: "Other",
+};
+
+export const MODE_LABELS = { ecs: "ECS / NACH auto-debit", upi_autopay: "UPI AutoPay", manual: "Pays each month" };
+export const MODE_SHORT = { ecs: "ECS", upi_autopay: "AutoPay", manual: "Pays monthly" };
+export const AUTO_DEBIT_MODES = ["ecs", "upi_autopay"];
+
+export const MANDATE_LABELS = {
+  submitted: "Form submitted",
+  active: "Active",
+  rejected: "Rejected by bank",
+  cancelled: "Cancelled",
+};
+
+/** The payment method to suggest for a pledge, from how the sevak pays. */
+export const defaultMethod = (setup) => (setup && AUTO_DEBIT_MODES.includes(setup.mode) ? setup.mode : "upi");
 
 export const FLAG_LABELS = { spam: "Spam", test: "Test entry", duplicate: "Duplicate", other: "Other" };
 

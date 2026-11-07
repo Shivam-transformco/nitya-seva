@@ -15,8 +15,35 @@ export type FollowupChannel = (typeof FOLLOWUP_CHANNELS)[number];
 export const FOLLOWUP_OUTCOMES = ["reached", "no_answer", "callback", "confirmed", "declined"] as const;
 export type FollowupOutcome = (typeof FOLLOWUP_OUTCOMES)[number];
 
-export const PAYMENT_METHODS = ["upi", "cash", "bank", "cheque", "other"] as const;
+export const PAYMENT_METHODS = ["upi", "cash", "bank", "cheque", "other", "ecs", "upi_autopay"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/** How a sevak has arranged to give each month. */
+export const PAYMENT_MODES = ["ecs", "upi_autopay", "manual"] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+/** Modes where the bank debits the sevak against a signed mandate. */
+export const AUTO_DEBIT_MODES: readonly PaymentMode[] = ["ecs", "upi_autopay"];
+
+export const MANDATE_STATUSES = ["submitted", "active", "rejected", "cancelled"] as const;
+export type MandateStatus = (typeof MANDATE_STATUSES)[number];
+
+export interface PaymentSetup {
+  mode: PaymentMode;
+  /** Only for auto-debit modes. Account numbers are deliberately not stored. */
+  mandate?: {
+    status: MandateStatus;
+    bank: string;
+    /** UMRN or the bank's mandate reference. */
+    reference: string;
+    /** Day of the month the debit is due, 1–31. */
+    debitDay?: number;
+    /** "YYYY-MM": first month the mandate debits. */
+    startMonth?: string;
+  };
+  note: string;
+  updatedBy: ObjectId;
+  updatedAt: Date;
+}
 
 /** Why a pledge was marked as not genuine. Flagged pledges are left out of the counter, work lists and reports. */
 export const PLEDGE_FLAGS = ["spam", "test", "duplicate", "other"] as const;
@@ -67,6 +94,8 @@ export interface PledgeDoc {
   flag?: { reason: PledgeFlagReason; note: string; by: ObjectId; at: Date };
   /** A genuine pledge that admins have chosen not to count on the public counter. */
   hiddenFromCounter?: boolean;
+  /** How they pay (ECS, UPI AutoPay or each month by hand). Unset until staff record it. */
+  paymentSetup?: PaymentSetup;
   /** _id of the original document in the old `submissions` collection. */
   legacyId?: ObjectId;
   createdAt: Date;

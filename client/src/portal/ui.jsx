@@ -1,4 +1,4 @@
-import { STATUS_LABELS } from "./format";
+import { MANDATE_LABELS, MODE_SHORT, STATUS_LABELS } from "./format";
 import { Link } from "./router";
 
 export function Brand() {
@@ -14,6 +14,14 @@ export function Brand() {
 
 export function StatusBadge({ status }) {
   return <span className={`badge badge-${status}`}>{STATUS_LABELS[status] ?? status}</span>;
+}
+
+/** How the sevak pays, with the mandate state for auto-debits unless it's active. */
+export function ModeBadge({ setup }) {
+  if (!setup) return null;
+  const status = setup.mandate?.status;
+  const text = status && status !== "active" ? `${MODE_SHORT[setup.mode]} · ${MANDATE_LABELS[status]}` : MODE_SHORT[setup.mode];
+  return <span className={`badge badge-mode badge-mode-${setup.mode}${status ? ` badge-mandate-${status}` : ""}`}>{text}</span>;
 }
 
 export function DueBadge({ due }) {

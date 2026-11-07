@@ -1,5 +1,13 @@
 import { collections } from "../../db/mongo.js";
-import { ACTIVE_PLEDGE_STATUSES, PLEDGE_STATUSES, type PledgeDoc, type PledgeStatus } from "../../domain/types.js";
+import {
+  ACTIVE_PLEDGE_STATUSES,
+  PLEDGE_STATUSES,
+  type MandateStatus,
+  type PaymentMethod,
+  type PaymentMode,
+  type PledgeDoc,
+  type PledgeStatus,
+} from "../../domain/types.js";
 import { endOfIstDay, istMonth } from "../../lib/dates.js";
 import { notFlagged } from "../counter/counter.rules.js";
 import * as sevaksRepo from "../sevaks/sevaks.repository.js";
@@ -53,6 +61,36 @@ export async function monthlyCollections(from: string, to: string) {
       { $sort: { month: 1 } },
     ])
     .toArray();
+}
+
+/** How confirmed sevaks pay, and what was collected through each method. */
+export async function paymentModes(from: string, to: string) {
+  const [pledges, payments] = await Promise.all([collections.pledges(), collections.payments()]);
+  const [modes, methods] = await Promise.all([
+    pledges
+      .aggregate<{ mode: PaymentMode | null; mandate: MandateStatus | null; count: number; amount: number }>([
+        { $match: { ...notFlagged, status: { $in: ["confirmed", "paused"] } } },
+        {
+          $group: {
+            _id: { mode: "$paymentSetup.mode", mandate: "$paymentSetup.mandate.status" },
+            count: { $sum: 1 },
+            amount: { $sum: "$amount" },
+          },
+        },
+        { $project: { _id: 0, mode: { $ifNull: ["$_id.mode", null] }, mandate: { $ifNull: ["$_id.mandate", null] }, count: 1, amount: 1 } },
+        { $sort: { amount: -1 } },
+      ])
+      .toArray(),
+    payments
+      .aggregate<{ method: PaymentMethod; amount: number; payments: number }>([
+        { $match: { month: { $gte: from, $lte: to } } },
+        { $group: { _id: "$method", amount: { $sum: "$amount" }, payments: { $sum: 1 } } },
+        { $project: { _id: 0, method: "$_id", amount: 1, payments: 1 } },
+        { $sort: { amount: -1 } },
+      ])
+      .toArray(),
+  ]);
+  return { modes, methods };
 }
 
 export async function activity(from: Date, to: Date) {
@@ -112,6 +150,11 @@ export async function* pledgesCsv(): AsyncGenerator<string> {
     "Message",
     "Marked as",
     "On public counter",
+    "Pays by",
+    "Mandate status",
+    "Mandate bank",
+    "Mandate reference",
+    "Debit day",
   ]
     .map(csvCell)
     .join(",") + "\n";
@@ -135,6 +178,11 @@ export async function* pledgesCsv(): AsyncGenerator<string> {
         p.message,
         p.flag?.reason ?? "",
         !p.flag && !p.hiddenFromCounter && ACTIVE_PLEDGE_STATUSES.includes(p.status) ? "yes" : "no",
+        p.paymentSetup?.mode ?? "",
+        p.paymentSetup?.mandate?.status ?? "",
+        p.paymentSetup?.mandate?.bank ?? "",
+        p.paymentSetup?.mandate?.reference ?? "",
+        p.paymentSetup?.mandate?.debitDay ?? "",
       ]
         .map(csvCell)
         .join(",") + "\n";

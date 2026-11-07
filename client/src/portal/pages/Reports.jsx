@@ -1,6 +1,77 @@
-import { pledgesCsvUrl, useApi } from "../api";
-import { ROLE_LABELS, formatINR, monthLabel } from "../format";
+import { pledgesCsvUrl, qs, useApi } from "../api";
+import { MANDATE_LABELS, METHOD_LABELS, MODE_LABELS, ROLE_LABELS, formatINR, monthLabel, plural } from "../format";
+import { Link } from "../router";
 import { Empty, ErrorNote, Loading, PageHead } from "../ui";
+
+function PaymentModes() {
+  const { data, error, loading } = useApi("/reports/payment-modes");
+  return (
+    <section className="p-card">
+      <h2>How sevaks pay</h2>
+      <p className="p-muted">Confirmed and paused pledges, by the payment mode recorded on each.</p>
+      <ErrorNote error={error} />
+      {!data ? (
+        loading && <Loading />
+      ) : !data.modes.length ? (
+        <Empty>No confirmed pledges yet.</Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="ptable" aria-label="Pledges by payment mode">
+            <thead>
+              <tr>
+                <th>Pays by</th>
+                <th>Sevaks</th>
+                <th>Monthly amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.modes.map((m) => (
+                <tr key={`${m.mode}-${m.mandate}`}>
+                  <td>
+                    <Link to={`/pledges${qs({ mode: m.mode ?? "none", mandate: m.mandate ?? "" })}`}>
+                      {m.mode ? MODE_LABELS[m.mode] : "Not recorded"}
+                    </Link>
+                    {m.mandate && <div className="p-muted">Mandate: {MANDATE_LABELS[m.mandate].toLowerCase()}</div>}
+                  </td>
+                  <td>{m.count}</td>
+                  <td>{formatINR(m.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h3 className="counter-sub">Collected by payment method</h3>
+      <p className="p-muted">Payments recorded over the last 12 months.</p>
+      {data &&
+        (!data.methods.length ? (
+          <Empty>No payments recorded yet.</Empty>
+        ) : (
+          <div className="table-wrap">
+            <table className="ptable" aria-label="Collections by payment method">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Payments</th>
+                  <th>Collected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.methods.map((m) => (
+                  <tr key={m.method}>
+                    <td>{METHOD_LABELS[m.method] ?? m.method}</td>
+                    <td>{plural(m.payments, "payment")}</td>
+                    <td>{formatINR(m.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+    </section>
+  );
+}
 
 export default function Reports() {
   const collections = useApi("/reports/collections");
@@ -29,7 +100,7 @@ export default function Reports() {
           <Empty>No payments recorded yet.</Empty>
         ) : (
           <div className="table-wrap">
-            <table className="ptable">
+            <table className="ptable" aria-label="Collections by month">
               <thead>
                 <tr>
                   <th>Month</th>
@@ -57,6 +128,8 @@ export default function Reports() {
           </div>
         )}
       </section>
+
+      <PaymentModes />
 
       <section className="p-card">
         <h2>Follow-up activity</h2>

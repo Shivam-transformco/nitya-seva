@@ -82,7 +82,17 @@ Money is stored as **whole rupees in an integer** (all offerings are whole rupee
 One sevak can have several pledges over time. Phone is the identity because it is required and is how devotees reach them.
 
 ### `pledges`
-`sevakId, seva, amount, frequency: "Monthly", status, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent? }, nextFollowUpAt?, lastContactAt?, legacyId?, createdAt, updatedAt`
+`sevakId, seva, amount, frequency: "Monthly", status, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent? }, nextFollowUpAt?, lastContactAt?, flag?, hiddenFromCounter?, paymentSetup?, legacyId?, createdAt, updatedAt`
+
+`paymentSetup` records how the sevak gives, independent of `status`:
+
+```
+{ mode: "ecs" | "upi_autopay" | "manual",
+  mandate?: { status: "submitted" | "active" | "rejected" | "cancelled", bank, reference /* UMRN */, debitDay?, startMonth? },
+  note, updatedBy, updatedAt }
+```
+
+`mandate` is required for the two auto-debit modes and dropped for `manual`. Bank account numbers are never stored. Auto-debits still arrive as manual entries: when the bank statement shows an ECS credit, staff record a payment with method `ecs` (the form suggests it).
 
 Status lifecycle (enforced in `pledges.service.ts`):
 
@@ -101,7 +111,7 @@ new ──► contacted ──► confirmed ◄──► paused
 Logging a follow-up updates the pledge's `lastContactAt` and `nextFollowUpAt`, and moves `new` to `contacted`. Outcomes `confirmed` and `declined` move the pledge to `confirmed` and `lost`.
 
 ### `payments`
-`pledgeId, sevakId, amount, month, method: "upi" | "cash" | "bank" | "cheque" | "other", reference, receivedAt, recordedBy, receiptNo (unique, e.g. NS-2026-000123), createdAt`
+`pledgeId, sevakId, amount, month, method: "ecs" | "upi_autopay" | "upi" | "cash" | "bank" | "cheque" | "other", reference, receivedAt, recordedBy, receiptNo (unique, e.g. NS-2026-000123), createdAt`
 
 Receipt numbers come from an atomic counter in `counters`.
 
@@ -144,16 +154,17 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 ### Staff (login required)
 | Method | Path | Role |
 | --- | --- | --- |
-| GET | `/api/pledges?status=&assignedTo=&due=&q=&page=&limit=` | admin: all; followup: own |
+| GET | `/api/pledges?status=&assignedTo=&due=&mode=&mandate=&q=&page=&limit=` | admin: all; followup: own. `mode` is a payment mode or `none` |
 | GET | `/api/pledges/:id` | pledge with sevak, follow-ups and payments |
 | PATCH | `/api/pledges/:id/status` | transition rules apply |
 | PATCH | `/api/pledges/:id/assign` | admin |
+| PUT/DELETE | `/api/pledges/:id/payment-setup` | how the sevak pays; audited |
 | GET/POST | `/api/pledges/:id/followups` | |
 | GET/POST | `/api/pledges/:id/payments` | |
 | GET | `/api/notifications` | own |
 | POST | `/api/notifications/:id/read`, `/api/notifications/read-all` | own |
 | GET/POST | `/api/users`, PATCH `/api/users/:id` | admin |
-| GET | `/api/reports/summary`, `/api/reports/collections?from=&to=`, `/api/reports/activity?from=&to=`, `/api/reports/pledges.csv` | admin |
+| GET | `/api/reports/summary`, `/api/reports/collections?from=&to=`, `/api/reports/activity?from=&to=`, `/api/reports/payment-modes?from=&to=`, `/api/reports/pledges.csv` | admin |
 
 ### Cron
 | GET | `/api/cron/daily` | Requires `Authorization: Bearer $CRON_SECRET`. Creates `followup.due` notifications for pledges whose `nextFollowUpAt` is today or earlier. |

@@ -161,6 +161,46 @@ test("the devotee records a payment and gets a receipt number", async () => {
   await expect(history).toContainText("Busy at work this week");
 });
 
+const lastMonth = () => {
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" })
+    .format(new Date())
+    .split("-")
+    .map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+};
+
+test("the devotee records an ECS mandate and the payments that come through it", async () => {
+  const setup = devotee.getByRole("form", { name: "How they pay" });
+  await setup.getByText("ECS / NACH auto-debit").click();
+  await expect(setup.getByLabel("Mandate status")).toHaveValue("submitted");
+  await setup.getByLabel(/^Bank/).fill("SBI");
+  await setup.getByLabel(/^Reference \/ UMRN/).fill("SBIN7000123");
+  await setup.getByLabel(/^Debit day/).fill("5");
+  await setup.getByRole("button", { name: "Save" }).click();
+  await expect(devotee.locator(".detail-sub .badge-mode")).toHaveText("ECS · Form submitted");
+
+  await nav(devotee, "My sevaks").click();
+  await devotee.getByLabel("How they pay").selectOption("pending");
+  await expect(devotee.locator(".rows-count")).toHaveText("1 pledge");
+  await devotee.getByRole("link", { name: new RegExp(SEVAK.name) }).click();
+
+  const card = devotee.locator(".p-card", { hasText: "How they pay" });
+  await card.getByRole("button", { name: "Change" }).click();
+  await setup.getByLabel("Mandate status").selectOption("active");
+  await setup.getByRole("button", { name: "Save" }).click();
+  await expect(devotee.locator(".detail-sub .badge-mode")).toHaveText("ECS");
+  await expect(card).toContainText("5 of each month");
+
+  const pay = devotee.getByRole("form", { name: "Record a payment" });
+  await expect(pay.getByLabel("Paid by")).toHaveValue("ecs");
+  await pay.getByLabel("Amount (₹)").fill("1000");
+  await pay.getByLabel("For the month of").fill(lastMonth());
+  await pay.getByLabel(/Reference/).fill("ECS-STMT-0905");
+  await pay.getByRole("button", { name: "Record payment" }).click();
+  await expect(pay.getByRole("status")).toContainText(/Receipt NS-\d{4}-000002/);
+  await expect(devotee.locator(".timeline")).toContainText("ECS auto-debit · ECS-STMT-0905");
+});
+
 test("the devotee can't reach admin pages or other pledges", async () => {
   await expect(nav(devotee, "Reports")).toHaveCount(0);
   await devotee.goto("/portal/#/reports");
@@ -183,7 +223,12 @@ test("the admin sees the money and activity in the dashboard and reports", async
   await expect(admin.locator(".stat-card", { hasText: "Waiting for a devotee" }).locator("strong")).toHaveText("1");
 
   await nav(admin, "Reports").click();
-  await expect(admin.getByRole("row", { name: /₹1,100/ })).toBeVisible();
+  await expect(admin.getByRole("table", { name: "Collections by month" }).getByRole("row", { name: /₹1,100/ })).toBeVisible();
+  const modes = admin.getByRole("table", { name: "Pledges by payment mode" });
+  await expect(modes.getByRole("row", { name: /ECS \/ NACH auto-debit/ })).toContainText("₹1,100");
+  const methods = admin.getByRole("table", { name: "Collections by payment method" });
+  await expect(methods.getByRole("row", { name: /ECS auto-debit/ })).toContainText("₹1,000");
+  await expect(methods.getByRole("row", { name: /^UPI / })).toContainText("₹1,100");
   const activity = admin.getByRole("row", { name: new RegExp(DEVOTEE.name) });
   await expect(activity.locator("td").nth(1)).toHaveText("2");
   await expect(activity.locator("td").nth(4)).toHaveText("1");
@@ -196,6 +241,7 @@ test("the admin sees the money and activity in the dashboard and reports", async
   expect(csv).toContain(SEVAK.name);
   expect(csv).toContain("Legacy Devotee");
   expect(csv).toContain(`${SEVAK.amount},confirmed,${DEVOTEE.name}`);
+  expect(csv).toContain(",ecs,active,SBI,SBIN7000123,5");
 });
 
 const publicStats = async (page) => (await page.request.get(`${API_URL}/api/stats`)).json();

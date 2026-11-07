@@ -1,6 +1,6 @@
 import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
-import type { PledgeDoc, PledgeFlagReason, PledgeStatus, SevakDoc } from "../../domain/types.js";
+import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, SevakDoc } from "../../domain/types.js";
 import { endOfIstDay } from "../../lib/dates.js";
 import { badRequest, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
@@ -12,7 +12,7 @@ import * as sevaksRepo from "../sevaks/sevaks.repository.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as repo from "./pledges.repository.js";
 import { allowedNext, canTransition } from "./pledges.rules.js";
-import type { listPledgesQuery } from "./pledges.schema.js";
+import type { listPledgesQuery, paymentSetupBody } from "./pledges.schema.js";
 
 /** Follow-up devotees only see pledges assigned to them; for everyone else the pledge "doesn't exist". */
 export async function loadForActor(actor: Actor, id: ObjectId): Promise<PledgeDoc> {
@@ -35,6 +35,9 @@ async function withPeople(pledges: PledgeDoc[]) {
       assignee: p.assignedTo ? { _id: p.assignedTo, name: names.get(p.assignedTo.toHexString()) ?? "Unknown" } : null,
       flag: p.flag ? { ...p.flag, byName: names.get(p.flag.by.toHexString()) ?? "Unknown" } : null,
       hiddenFromCounter: p.hiddenFromCounter === true,
+      paymentSetup: p.paymentSetup
+        ? { ...p.paymentSetup, updatedByName: names.get(p.paymentSetup.updatedBy.toHexString()) ?? "Unknown" }
+        : null,
     };
   });
 }
@@ -47,6 +50,9 @@ export async function list(actor: Actor, q: z.infer<typeof listPledgesQuery>) {
   if (q.status) filter.status = q.status;
   filter.flag = { $exists: q.flagged === "true" };
   if (q.hidden === "true") filter.hiddenFromCounter = true;
+  if (q.mode === "none") filter.paymentSetup = { $exists: false };
+  else if (q.mode) filter["paymentSetup.mode"] = q.mode;
+  if (q.mandate) filter["paymentSetup.mandate.status"] = q.mandate;
   if (q.due === "true") filter.nextFollowUpAt = { $lte: endOfIstDay() };
   if (q.q) filter.sevakId = { $in: await sevaksRepo.searchIds(q.q) };
 
@@ -118,6 +124,32 @@ export async function setCounterVisibility(actor: Actor, id: ObjectId, hidden: b
     await repo.update(id, hidden ? { hiddenFromCounter: true } : {}, hidden ? [] : ["hiddenFromCounter"]);
     await audit.record(actor.id, hidden ? "pledge.counter_hide" : "pledge.counter_show", "pledge", id);
   }
+  return detail(actor, id);
+}
+
+/** Records how the sevak pays. Anyone who can see the pledge may do this (devotees often help fill the ECS form). */
+export async function setPaymentSetup(actor: Actor, id: ObjectId, input: z.infer<typeof paymentSetupBody>) {
+  const pledge = await loadForActor(actor, id);
+  const setup: PaymentSetup = {
+    mode: input.mode,
+    ...(input.mandate ? { mandate: input.mandate } : {}),
+    note: input.note,
+    updatedBy: actor.id,
+    updatedAt: new Date(),
+  };
+  await repo.update(id, { paymentSetup: setup });
+  await audit.record(actor.id, "pledge.payment_setup", "pledge", id, {
+    from: pledge.paymentSetup ? { mode: pledge.paymentSetup.mode, mandate: pledge.paymentSetup.mandate?.status ?? null } : null,
+    to: { mode: setup.mode, mandate: setup.mandate?.status ?? null },
+  });
+  return detail(actor, id);
+}
+
+export async function clearPaymentSetup(actor: Actor, id: ObjectId) {
+  const pledge = await loadForActor(actor, id);
+  if (!pledge.paymentSetup) return detail(actor, id);
+  await repo.update(id, {}, ["paymentSetup"]);
+  await audit.record(actor.id, "pledge.payment_setup_clear", "pledge", id, { was: pledge.paymentSetup.mode });
   return detail(actor, id);
 }
 

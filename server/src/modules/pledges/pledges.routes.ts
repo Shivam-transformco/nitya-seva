@@ -3,7 +3,14 @@ import { body, idParam, ok, query } from "../../lib/http.js";
 import { actorOf, requireRole } from "../../middleware/auth.js";
 import { followupsRouter } from "../followups/followups.routes.js";
 import { paymentsRouter } from "../payments/payments.routes.js";
-import { assignBody, counterVisibilityBody, flagBody, listPledgesQuery, updateStatusBody } from "./pledges.schema.js";
+import {
+  assignBody,
+  counterVisibilityBody,
+  flagBody,
+  listPledgesQuery,
+  paymentSetupBody,
+  updateStatusBody,
+} from "./pledges.schema.js";
 import * as service from "./pledges.service.js";
 
 export const pledgesRouter = Router();
@@ -36,6 +43,14 @@ pledgesRouter.delete("/:id/flag", async (req, res) => {
 
 pledgesRouter.patch("/:id/counter", requireRole("admin"), async (req, res) => {
   ok(res, await service.setCounterVisibility(actorOf(req), idParam(req), body(req, counterVisibilityBody).hidden));
+});
+
+pledgesRouter.put("/:id/payment-setup", async (req, res) => {
+  ok(res, await service.setPaymentSetup(actorOf(req), idParam(req), body(req, paymentSetupBody)));
+});
+
+pledgesRouter.delete("/:id/payment-setup", async (req, res) => {
+  ok(res, await service.clearPaymentSetup(actorOf(req), idParam(req)));
 });
 
 pledgesRouter.use("/:id/followups", followupsRouter);

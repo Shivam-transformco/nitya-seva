@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { api, useApi } from "../api";
 import {
+  AUTO_DEBIT_MODES,
   CHANNEL_LABELS,
   FLAG_LABELS,
+  MANDATE_LABELS,
   METHOD_LABELS,
+  MODE_LABELS,
   OUTCOME_LABELS,
   STATUS_LABELS,
   currentMonth,
+  defaultMethod,
   dueLabel,
   formatDate,
   formatDateTime,
@@ -17,7 +21,7 @@ import {
   waLink,
 } from "../format";
 import { Link } from "../router";
-import { DueBadge, Empty, ErrorNote, Field, Loading, StatusBadge } from "../ui";
+import { DueBadge, Empty, ErrorNote, Field, Loading, ModeBadge, StatusBadge } from "../ui";
 
 const CAN_PAY = ["confirmed", "paused"];
 
@@ -39,7 +43,8 @@ export default function PledgeDetail({ id, user }) {
         <div>
           <h1>{p.sevak?.name ?? "Unknown sevak"}</h1>
           <p className="detail-sub">
-            <StatusBadge status={p.status} /> <strong>{formatINR(p.amount)}</strong> a month · {p.seva}
+            <StatusBadge status={p.status} /> <ModeBadge setup={p.paymentSetup} /> <strong>{formatINR(p.amount)}</strong> a
+            month · {p.seva}
           </p>
         </div>
         {p.sevak && (
@@ -97,6 +102,7 @@ export default function PledgeDetail({ id, user }) {
           </section>
 
           <StatusCard pledge={p} onChanged={reload} />
+          {!p.flag && <PaymentSetupCard pledge={p} onChanged={reload} />}
           {isAdmin && <AssignCard pledge={p} onChanged={reload} />}
           {isAdmin && <CounterCard pledge={p} onChanged={reload} />}
           <FlagCard pledge={p} onChanged={reload} />
@@ -105,7 +111,7 @@ export default function PledgeDetail({ id, user }) {
         <div className="detail-col">
           <FollowupForm pledge={p} onSaved={reload} />
           {CAN_PAY.includes(p.status) && !p.flag ? (
-            <PaymentForm pledge={p} onSaved={reload} />
+            <PaymentForm key={p.paymentSetup?.mode ?? "none"} pledge={p} onSaved={reload} />
           ) : (
             <section className="p-card p-card-quiet">
               <h2>Record a payment</h2>
@@ -160,6 +166,180 @@ function StatusCard({ pledge, onChanged }) {
       </div>
       <ErrorNote error={error} />
     </section>
+  );
+}
+
+const setupForm = (setup) => ({
+  mode: setup?.mode ?? "",
+  status: setup?.mandate?.status ?? "submitted",
+  bank: setup?.mandate?.bank ?? "",
+  reference: setup?.mandate?.reference ?? "",
+  debitDay: setup?.mandate?.debitDay ? String(setup.mandate.debitDay) : "",
+  startMonth: setup?.mandate?.startMonth ?? "",
+  note: setup?.note ?? "",
+});
+
+function PaymentSetupCard({ pledge, onChanged }) {
+  const setup = pledge.paymentSetup;
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(() => setupForm(setup));
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const auto = AUTO_DEBIT_MODES.includes(form.mode);
+
+  async function run(request) {
+    setError(null);
+    setBusy(true);
+    try {
+      await request();
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.mode) return setError(new Error("Choose how they pay."));
+    const debitDay = form.debitDay ? Number(form.debitDay) : undefined;
+    if (debitDay !== undefined && !(Number.isInteger(debitDay) && debitDay >= 1 && debitDay <= 31)) {
+      return setError(new Error("Debit day is a date of the month, 1 to 31."));
+    }
+    const body = {
+      mode: form.mode,
+      note: form.note.trim(),
+      ...(auto && {
+        mandate: {
+          status: form.status,
+          bank: form.bank.trim(),
+          reference: form.reference.trim(),
+          ...(debitDay && { debitDay }),
+          ...(form.startMonth && { startMonth: form.startMonth }),
+        },
+      }),
+    };
+    run(() => api(`/pledges/${pledge._id}/payment-setup`, { method: "PUT", body }));
+  }
+
+  if (setup && !editing) {
+    const m = setup.mandate;
+    return (
+      <section className="p-card">
+        <h2>How they pay</h2>
+        <dl className="facts">
+          <dt>Pays by</dt>
+          <dd>{MODE_LABELS[setup.mode]}</dd>
+          {m && (
+            <>
+              <dt>Mandate</dt>
+              <dd>
+                <span className={`badge badge-mandate-${m.status}`}>{MANDATE_LABELS[m.status]}</span>
+              </dd>
+              <dt>Bank</dt>
+              <dd>{m.bank || "—"}</dd>
+              <dt>Reference / UMRN</dt>
+              <dd>{m.reference || "—"}</dd>
+              <dt>Debit day</dt>
+              <dd>{m.debitDay ? `${m.debitDay} of each month` : "—"}</dd>
+              <dt>Starts</dt>
+              <dd>{m.startMonth ? monthLabel(m.startMonth) : "—"}</dd>
+            </>
+          )}
+          {setup.note && (
+            <>
+              <dt>Note</dt>
+              <dd>{setup.note}</dd>
+            </>
+          )}
+        </dl>
+        <p className="p-hint">
+          Updated by {setup.updatedByName} on {formatDate(setup.updatedAt)}.
+        </p>
+        <div className="btn-row">
+          <button
+            type="button"
+            className="pbtn pbtn-ghost"
+            onClick={() => {
+              setForm(setupForm(setup));
+              setEditing(true);
+            }}
+          >
+            Change
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <form className="p-card p-form" onSubmit={submit} aria-label="How they pay" noValidate>
+      <h2>How they pay</h2>
+      {!setup && <p className="p-muted">Not recorded yet. Note it once they've chosen, e.g. after filling the ECS form.</p>}
+      <fieldset className="p-field">
+        <legend className="p-label">Pays by</legend>
+        <div className="choice-chips">
+          {Object.entries(MODE_LABELS).map(([v, l]) => (
+            <label key={v} className={`choice${form.mode === v ? " on" : ""}`}>
+              <input type="radio" name="mode" value={v} checked={form.mode === v} onChange={set("mode")} />
+              {l}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {auto && (
+        <div className="p-grid-2">
+          <Field label="Mandate status">
+            <select value={form.status} onChange={set("status")}>
+              {Object.entries(MANDATE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Bank (optional)">
+            <input maxLength={100} value={form.bank} onChange={set("bank")} placeholder="e.g. SBI" />
+          </Field>
+          <Field label="Reference / UMRN (optional)" hint="Don't enter account numbers.">
+            <input maxLength={100} value={form.reference} onChange={set("reference")} />
+          </Field>
+          <Field label="Debit day (optional)">
+            <input type="number" min="1" max="31" step="1" inputMode="numeric" value={form.debitDay} onChange={set("debitDay")} placeholder="e.g. 5" />
+          </Field>
+          <Field label="First debit month (optional)">
+            <input type="month" value={form.startMonth} onChange={set("startMonth")} />
+          </Field>
+        </div>
+      )}
+      <Field label="Note (optional)">
+        <input maxLength={500} value={form.note} onChange={set("note")} />
+      </Field>
+      <ErrorNote error={error} />
+      <div className="btn-row">
+        <button className="pbtn" disabled={busy}>
+          {busy ? "Saving…" : "Save"}
+        </button>
+        {setup && (
+          <>
+            <button type="button" className="pbtn pbtn-ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="pbtn pbtn-ghost"
+              disabled={busy}
+              onClick={() => run(() => api(`/pledges/${pledge._id}/payment-setup`, { method: "DELETE" }))}
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </div>
+    </form>
   );
 }
 
@@ -396,7 +576,13 @@ function receivedAtFromInput(date) {
 }
 
 function PaymentForm({ pledge, onSaved }) {
-  const blank = () => ({ amount: String(pledge.amount), month: currentMonth(), method: "upi", reference: "", receivedAt: todayInput() });
+  const blank = () => ({
+    amount: String(pledge.amount),
+    month: currentMonth(),
+    method: defaultMethod(pledge.paymentSetup),
+    reference: "",
+    receivedAt: todayInput(),
+  });
   const [form, setForm] = useState(blank);
   const [error, setError] = useState(null);
   const [receipt, setReceipt] = useState(null);
@@ -454,7 +640,7 @@ function PaymentForm({ pledge, onSaved }) {
           <input type="date" max={todayInput()} value={form.receivedAt} onChange={set("receivedAt")} />
         </Field>
       </div>
-      <Field label="Reference (optional)" hint="UPI transaction ID, cheque number…">
+      <Field label="Reference (optional)" hint="UPI transaction ID, cheque number, or the ECS entry on the bank statement…">
         <input value={form.reference} onChange={set("reference")} />
       </Field>
       <ErrorNote error={error} />
