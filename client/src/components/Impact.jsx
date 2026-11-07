@@ -18,7 +18,7 @@ function Stat({ value, label, index }) {
 export default function Impact() {
   return (
     <section className="impact">
-      <img className="impact-bg" data-parallax="0.18" src={imageSrc("ratha-yatra.jpg")} alt="" loading="lazy" />
+      <img className="impact-bg" data-parallax="0.18" src={imageSrc("ratha-yatra.webp")} alt="" loading="lazy" />
       <div className="container">
         <SectionHead align="split" eyebrow="Impact" title="What your seva has already made possible" />
         <div className="stats">

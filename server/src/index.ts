@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { env } from "./config/env.js";
+import { getDb } from "./db/mongo.js";
 import { forbidden } from "./lib/errors.js";
 import { actorOf, requireAuth, requireRole } from "./middleware/auth.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
@@ -54,3 +55,7 @@ export function createApp() {
 
 // Vercel entry point: the default export becomes the serverless function.
 export default createApp();
+
+// Open the MongoDB connection while a fresh instance boots, rather than on its first request.
+// A failure here is retried by the first query, which reports the error properly.
+getDb().catch(() => {});

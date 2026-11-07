@@ -2,7 +2,7 @@ export const purposes = [
   {
     id: "Temple Hall",
     icon: "🛕",
-    image: "HG_Sundar_Gopal_Prji_Hall_Class.jpeg",
+    image: "HG_Sundar_Gopal_Prji_Hall_Class.webp",
     title: "The Temple Hall",
     tagline: "A home for the Lord and His devotees",
     body: "The hall where hundreds gather for darshan, classes and kirtan. Upkeep, lighting, sound, cleanliness and space for more seekers to sit and hear.",
@@ -11,7 +11,7 @@ export const purposes = [
   {
     id: "Deity Worship",
     icon: "🪔",
-    image: "Deity_worship.jpeg",
+    image: "Deity_worship.webp",
     title: "Deity Worship",
     tagline: "Waking the Lord with love at dawn",
     body: "Mangala ārati before sunrise, fresh bhoga offerings through the day, fragrant flowers, new outfits and ghee lamps for Their Lordships.",
@@ -20,7 +20,7 @@ export const purposes = [
   {
     id: "Nurturing Devotees",
     icon: "🙏",
-    image: "Nurturing_Devotees.jpg",
+    image: "Nurturing_Devotees.webp",
     title: "Nurturing Devotees",
     tagline: "So many lives, gently turned toward Krishna",
     body: "Students, young professionals and families who came as guests and stayed as devotees. Mentorship, Gita study circles and care for those who have given their lives to service.",
@@ -29,7 +29,7 @@ export const purposes = [
   {
     id: "Kirtan",
     icon: "🥁",
-    image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan.jpg",
+    image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan.webp",
     title: "Kirtan",
     tagline: "The holy name, sung together",
     body: "Weekly kirtans in the hall and Harinām on the streets of Delhi, carrying the Hare Krishna mahā-mantra to everyone who hears it. Mridangas, kartals, harmoniums and sound.",
@@ -38,7 +38,7 @@ export const purposes = [
   {
     id: "Festivals",
     icon: "🌺",
-    image: "Festivals.jpg",
+    image: "Festivals.webp",
     title: "Festivals",
     tagline: "Glorifying Krishna with the whole community",
     body: "Janmashtami, Gaura Pūrṇimā, Rādhāṣṭamī, Govardhan Pūjā, Ratha Yātrā: decorations, abhishek, feasts and celebrations that bring thousands closer to the Lord.",
@@ -47,7 +47,7 @@ export const purposes = [
   {
     id: "Preaching & Books",
     icon: "📖",
-    image: "Preaching.jpg",
+    image: "Preaching.webp",
     title: "Preaching & Books",
     tagline: "Sharing the wisdom of the Gita",
     body: "Bhagavad-gītā As It Is placed in new hands, college and youth programs, and courses that answer life's deepest questions, just as Śrīla Prabhupāda wanted.",
@@ -56,7 +56,7 @@ export const purposes = [
   {
     id: "Prasadam",
     icon: "🍛",
-    image: "prasadam_3.jpeg",
+    image: "prasadam_3.webp",
     title: "Prasadam",
     tagline: "Krishna's mercy on every plate",
     body: "Sanctified food served to every guest at programs and the Sunday feast, so that no one leaves the temple without tasting the Lord's mercy.",
@@ -65,7 +65,7 @@ export const purposes = [
   {
     id: "Wherever needed most",
     icon: "💛",
-    image: "Wherever_Needed_Most.jpg",
+    image: "Wherever_Needed_Most.webp",
     title: "Wherever needed most",
     tagline: "Trust the Lord's arrangement",
     body: "Let the temple direct your offering to the service that needs it most that month. Many of our sevaks choose this.",
@@ -75,18 +75,18 @@ export const purposes = [
 ];
 
 export const journeySteps = [
-  { title: "The first visit", image: "The_First_Visit.jpg", body: "A student from the neighbourhood walks in, curious. Someone greets them warmly and offers prasadam." },
-  { title: "The first kirtan", image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan_2.jpg", body: "They sit at the back, hesitant. By the end, they are clapping and singing the holy names." },
-  { title: "Hearing the Gita", image: "Hearing_the_Gita.jpg", body: "Weekly classes begin answering questions they never knew how to ask: Who am I? Why am I here?" },
-  { title: "Taking up chanting", image: "Taking_Up_Chanting.jpg", body: "Japa beads in hand, they begin each day with Krishna. Their life slowly fills with peace and purpose." },
-  { title: "Serving others", image: "HG_Sundar_Gopal_Prji_Kirtan.jpeg", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
+  { title: "The first visit", image: "The_First_Visit.webp", body: "A student from the neighbourhood walks in, curious. Someone greets them warmly and offers prasadam." },
+  { title: "The first kirtan", image: "Sri_Krishna_Chaitanya_swami_Maharaj_kirtan_2.webp", body: "They sit at the back, hesitant. By the end, they are clapping and singing the holy names." },
+  { title: "Hearing the Gita", image: "Hearing_the_Gita.webp", body: "Weekly classes begin answering questions they never knew how to ask: Who am I? Why am I here?" },
+  { title: "Taking up chanting", image: "Taking_Up_Chanting.webp", body: "Japa beads in hand, they begin each day with Krishna. Their life slowly fills with peace and purpose." },
+  { title: "Serving others", image: "HG_Sundar_Gopal_Prji_Kirtan.webp", body: "Now they welcome the next newcomer at the door. The circle of devotion grows." },
 ];
 
 export const sevas = [
   {
     id: "prachar",
     name: "Prachar Sahyog Seva",
-    image: "Preaching.jpg",
+    image: "Preaching.webp",
     body: "Carries Krishna's message further: kirtans, Harinām, Gita classes, book distribution and preaching programs.",
     amounts: ["1001", "2100", "5100", "11000"],
   },
