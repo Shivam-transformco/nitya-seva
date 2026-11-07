@@ -1,0 +1,21 @@
+:root {
+  --cream: #fbf6ec;
+  --cream-2: #f5ecda;
+  --paper: #fffdf8;
+  --saffron: #e8862a;
+  --saffron-dark: #c96a12;
+  --gold: #c9a227;
+  --gold-soft: #f3d48a;
+  --maroon: #6b1e2e;
+  --maroon-dark: #4a1220;
+  --peacock: #1f5e63;
+  --ink: #2b1a12;
+  --muted: #6e5a4c;
+  --line: #e7d9bf;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow: 0 24px 50px -28px rgba(107, 30, 46, 0.35);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --serif: "Cormorant Garamond", Georgia, serif;
+  --sans: "Mukta", system-ui, -apple-system, sans-serif;
+}

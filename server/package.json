@@ -1,15 +1,37 @@
 {
   "name": "nitya-seva-server",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "tsx watch --env-file=.env src/dev.ts",
+    "start": "tsx --env-file=.env src/dev.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:indexes": "tsx --env-file=.env scripts/ensure-indexes.ts",
+    "migrate": "tsx --env-file=.env scripts/migrate-submissions.ts",
+    "create-admin": "tsx --env-file=.env scripts/create-admin.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.3.0",
-    "mongodb": "^7.8.0"
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.8.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.43",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.12"
   }
 }
