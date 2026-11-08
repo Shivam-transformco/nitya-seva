@@ -132,6 +132,12 @@ describe("ledger", () => {
     expect(amountFor(p, "2026-03")).toBe(2000);
   });
 
+  it("treats an earlier ₹0 amount as not known yet, not as nothing owed", () => {
+    const p = pledge({ amount: 3000, amountHistory: [{ amount: 0, frequency: "Monthly", until: new Date("2026-04-08T06:00:00Z"), by: new ObjectId() }] });
+    expect(amountFor(p, "2026-02")).toBe(3000);
+    expect(states(ledger(p, [], new Map(), all, today)).slice(0, 2)).toEqual(["2026-01:missed", "2026-02:missed"]);
+  });
+
   it("has nothing due for pledges that aren't confirmed", () => {
     expect(ledger(pledge({ status: "contacted" }), [], new Map(), all, today)).toEqual([]);
   });

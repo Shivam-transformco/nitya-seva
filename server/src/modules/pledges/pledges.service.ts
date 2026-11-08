@@ -226,10 +226,13 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
   const frequency = input.frequency ?? pledge.frequency;
   if (amount !== pledge.amount || frequency !== pledge.frequency) {
     Object.assign(set, { amount, frequency, monthly: monthlyEquivalent(amount, frequency) });
-    set.amountHistory = [
-      ...(pledge.amountHistory ?? []),
-      { amount: pledge.amount, frequency: pledge.frequency, until: new Date(), by: actor.id },
-    ];
+    // A ₹0 amount was never pledged, just not known yet.
+    if (pledge.amount > 0) {
+      set.amountHistory = [
+        ...(pledge.amountHistory ?? []),
+        { amount: pledge.amount, frequency: pledge.frequency, until: new Date(), by: actor.id },
+      ];
+    }
   }
   if (input.seva !== undefined) set.seva = input.seva;
   if (input.message !== undefined) set.message = input.message;

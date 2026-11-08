@@ -88,9 +88,12 @@ export function dueDayOf(p: Pick<LedgerPledge, "dueDay" | "paymentSetup">, month
   return Math.min(p.dueDay ?? p.paymentSetup?.mandate?.debitDay ?? last, last);
 }
 
-/** The amount pledged for a month, from the amount history when it has changed since. */
+/**
+ * The amount pledged for a month, from the amount history when it has changed since.
+ * ₹0 means the amount wasn't known yet, so those months use the amount entered later.
+ */
 export function amountFor(p: Pick<LedgerPledge, "amount" | "amountHistory">, month: string): number {
-  for (const h of p.amountHistory ?? []) if (month < istMonth(h.until)) return h.amount;
+  for (const h of p.amountHistory ?? []) if (h.amount > 0 && month < istMonth(h.until)) return h.amount;
   return p.amount;
 }
 
