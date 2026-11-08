@@ -1,5 +1,6 @@
 import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
+import { can } from "../../domain/permissions.js";
 import type { DeletedItemDoc } from "../../domain/types.js";
 import { badRequest, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
@@ -33,12 +34,12 @@ export async function deletePledge(actor: Actor, id: ObjectId, reason: string) {
   });
 }
 
-/** Admins, or whoever recorded the payment. Its receipt number is never reused. */
+/** `payments.manage`, or whoever recorded the payment. Its receipt number is never reused. */
 export async function deletePayment(actor: Actor, pledgeId: ObjectId, paymentId: ObjectId, reason: string) {
   const pledge = await loadForActor(actor, pledgeId);
   const payment = await paymentsRepo.findById(paymentId);
   if (!payment || !payment.pledgeId.equals(pledgeId)) throw notFound("Payment");
-  if (actor.role !== "admin" && !payment.recordedBy.equals(actor.id)) {
+  if (!can(actor.role, "payments.manage") && !payment.recordedBy.equals(actor.id)) {
     throw forbidden("Only the person who recorded this payment, or an admin, can delete it.");
   }
   await repo.put({ kind: "payment", itemId: paymentId, pledgeId, sevakId: pledge.sevakId, reason, followups: [], payments: [payment], deletedBy: actor.id });
@@ -102,7 +103,7 @@ export async function restore(actor: Actor, id: ObjectId) {
   return { pledgeId: item.pledgeId };
 }
 
-/** Admin only. Gone for good; a pledge takes its separately deleted follow-ups and payments with it. */
+/** Owners only (`bin.purge`). Gone for good; a pledge takes its separately deleted follow-ups and payments with it. */
 export async function purge(actor: Actor, id: ObjectId) {
   const item = await repo.findById(id);
   if (!item) throw notFound("Deleted item");

@@ -13,7 +13,8 @@
     "test": "vitest run",
     "db:indexes": "tsx --env-file=.env scripts/ensure-indexes.ts",
     "migrate": "tsx --env-file=.env scripts/migrate-submissions.ts",
-    "create-admin": "tsx --env-file=.env scripts/create-admin.ts"
+    "create-admin": "tsx --env-file=.env scripts/create-admin.ts",
+    "set-role": "tsx --env-file=.env scripts/set-role.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

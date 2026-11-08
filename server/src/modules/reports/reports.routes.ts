@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { istMonth, MONTH_RE } from "../../lib/dates.js";
 import { ok, query } from "../../lib/http.js";
+import { requirePermission } from "../../middleware/auth.js";
 import * as service from "./reports.service.js";
 
 const monthRange = z.object({
@@ -16,7 +17,7 @@ const dateRange = z.object({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Mounted behind requireRole("admin"). */
+/** Mounted behind `reports.view`. */
 export const reportsRouter = Router();
 
 reportsRouter.get("/summary", async (_req, res) => {
@@ -44,7 +45,7 @@ reportsRouter.get("/activity", async (req, res) => {
   ok(res, { from, to, users: await service.activity(from, to) });
 });
 
-reportsRouter.get("/pledges.csv", async (_req, res) => {
+reportsRouter.get("/pledges.csv", requirePermission("reports.export"), async (_req, res) => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="nitya-seva-pledges-${istMonth()}.csv"`);
   res.write("\uFEFF"); // BOM so Excel reads UTF-8 (₹, Devanagari) correctly

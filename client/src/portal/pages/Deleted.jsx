@@ -5,6 +5,7 @@ import {
   METHOD_LABELS,
   OUTCOME_LABELS,
   STATUS_LABELS,
+  can,
   formatDate,
   formatDateTime,
   formatINR,
@@ -47,7 +48,8 @@ function describe(item) {
   };
 }
 
-export default function Deleted({ params }) {
+export default function Deleted({ params, user }) {
+  const canPurge = can(user, "bin.purge");
   const kind = params.get("kind") ?? "";
   const page = params.get("page") ?? "";
   const list = useApi(`/deleted${qs({ kind, page })}`);
@@ -118,14 +120,16 @@ export default function Deleted({ params }) {
                         >
                           Restore
                         </button>
-                        <button
-                          type="button"
-                          className="pbtn pbtn-ghost pbtn-small"
-                          disabled={busyId === item._id}
-                          onClick={() => act(item, "purge")}
-                        >
-                          Delete for good
-                        </button>
+                        {canPurge && (
+                          <button
+                            type="button"
+                            className="pbtn pbtn-ghost pbtn-small"
+                            disabled={busyId === item._id}
+                            onClick={() => act(item, "purge")}
+                          >
+                            Delete for good
+                          </button>
+                        )}
                       </span>
                     </li>
                   );

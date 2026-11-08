@@ -224,6 +224,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .p-banner-flag { background: #fbe9e7; border-color: #f2c4bd; color: #8a1c12; }
 .badge-flag { background: #fbe9e7; color: #8a1c12; }
 .badge-hidden { background: #eef2f7; color: #234e7a; }
+.badge-origin { background: #f3ecf7; color: #5b2a78; }
+
+/* Collapsible cards: past payments, merging */
+.p-more-card > summary { cursor: pointer; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.p-more-card > summary::-webkit-details-marker { display: none; }
+.p-more-card > summary h2 { margin: 0; }
+.p-more-card > summary h2::after { content: " ▸"; color: var(--maroon); font-size: 0.8em; }
+.p-more-card[open] > summary h2::after { content: " ▾"; }
+.p-more-card[open] > summary { margin-bottom: 14px; }
+.p-more-card .rows { margin-top: 12px; }
+.amount-history { margin: 8px 0 0; padding-left: 18px; }
+.amount-history li { margin: 4px 0; }
 .badge-mode { background: #eef0fb; color: #33408a; }
 .badge-mode-manual { background: #f1efec; color: #5b544d; }
 .badge-mandate-active { background: #e3f2e7; color: #1d5b33; }

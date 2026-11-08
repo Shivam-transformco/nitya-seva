@@ -1,10 +1,23 @@
 import { useState } from "react";
 import { qs, useApi } from "../api";
-import { FLAG_LABELS, MODE_LABELS, STATUSES, STATUS_LABELS, dueLabel, formatDate, formatINR, plural } from "../format";
+import {
+  FLAG_LABELS,
+  FREQUENCIES,
+  MODE_LABELS,
+  ORIGIN_LABELS,
+  STATUSES,
+  STATUS_LABELS,
+  can,
+  dueLabel,
+  formatDate,
+  formatINR,
+  perLabel,
+  plural,
+} from "../format";
 import { Link, navigate } from "../router";
-import { DueBadge, Empty, ErrorNote, Loading, ModeBadge, PageHead, Pager, StatusBadge } from "../ui";
+import { DueBadge, Empty, ErrorNote, Loading, ModeBadge, OriginBadge, PageHead, Pager, StatusBadge } from "../ui";
 
-const FILTER_KEYS = ["status", "assignedTo", "due", "flagged", "hidden", "mode", "mandate", "q", "sort", "page"];
+const FILTER_KEYS = ["status", "assignedTo", "due", "flagged", "hidden", "mode", "mandate", "origin", "frequency", "q", "sort", "page"];
 
 const CLEAR_VIEW = { due: "", flagged: "", hidden: "" };
 const VIEWS = [
@@ -27,9 +40,19 @@ export function PledgeRows({ items, showAssignee }) {
                 {p.sevak?.phone} · {p.seva}
               </span>
             </span>
-            <span className="row-amount">{formatINR(p.amount)}<small>/mo</small></span>
+            <span className="row-amount">
+              {p.amount ? (
+                <>
+                  {formatINR(p.amount)}
+                  <small>{perLabel(p.frequency)}</small>
+                </>
+              ) : (
+                <small>Amount not set</small>
+              )}
+            </span>
             <span className="row-meta">
               <StatusBadge status={p.status} />
+              <OriginBadge origin={p.origin} />
               {!p.flag && <ModeBadge setup={p.paymentSetup} />}
               {p.flag && <span className="badge badge-flag">{FLAG_LABELS[p.flag.reason]}</span>}
               {!p.flag && p.hiddenFromCounter && <span className="badge badge-hidden">Off counter</span>}
@@ -47,7 +70,7 @@ export function PledgeRows({ items, showAssignee }) {
 }
 
 export default function Pledges({ params, user }) {
-  const isAdmin = user.role === "admin";
+  const isAdmin = can(user, "pledges.viewAll");
   const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ""]));
   const staff = useApi(isAdmin ? "/users" : null);
   const list = useApi(`/pledges${qs(filters)}`);
@@ -71,11 +94,18 @@ export default function Pledges({ params, user }) {
         title={isAdmin ? "Pledges" : "My sevaks"}
         sub={isAdmin ? "Everyone who has offered Nitya Seva." : "Sevaks assigned to you for follow-up."}
         actions={
-          isAdmin && (
-            <Link to="/deleted" className="pbtn pbtn-ghost pbtn-small">
-              Recently deleted
-            </Link>
-          )
+          <>
+            {can(user, "bin.manage") && (
+              <Link to="/deleted" className="pbtn pbtn-ghost pbtn-small">
+                Recently deleted
+              </Link>
+            )}
+            {can(user, "pledges.manage") && (
+              <Link to="/pledges/new" className="pbtn pbtn-small">
+                Add pledge
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -115,6 +145,22 @@ export default function Pledges({ params, user }) {
           ))}
           <option value="pending">Mandate not active yet</option>
           <option value="none">Not recorded</option>
+        </select>
+        <select aria-label="Came from" value={filters.origin} onChange={(e) => update({ origin: e.target.value })}>
+          <option value="">Any source</option>
+          {Object.entries(ORIGIN_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select aria-label="How often" value={filters.frequency} onChange={(e) => update({ frequency: e.target.value })}>
+          <option value="">Any frequency</option>
+          {FREQUENCIES.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
         </select>
         {isAdmin && (
           <select aria-label="Assigned to" value={filters.assignedTo} onChange={(e) => update({ assignedTo: e.target.value })}>

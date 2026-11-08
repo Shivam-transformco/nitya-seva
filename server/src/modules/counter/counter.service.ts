@@ -5,6 +5,7 @@ import type { PledgeDoc } from "../../domain/types.js";
 import { notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
+import { MONTHLY_AMOUNT } from "../pledges/pledges.rules.js";
 import * as repo from "./counter.repository.js";
 import {
   adjustmentTotals,
@@ -17,12 +18,12 @@ import {
 } from "./counter.rules.js";
 import type { createAdjustmentBody, updateAdjustmentBody } from "./counter.schema.js";
 
-/** Sum of amounts and distinct sevaks over the matching pledges. */
+/** Sum of monthly amounts and distinct sevaks over the matching pledges. */
 async function pledgeTotals(filter: Filter<PledgeDoc>): Promise<Totals & { pledges: number }> {
   const [agg] = await (await collections.pledges())
     .aggregate<Totals & { pledges: number }>([
       { $match: filter },
-      { $group: { _id: null, amount: { $sum: "$amount" }, pledges: { $sum: 1 }, sevakIds: { $addToSet: "$sevakId" } } },
+      { $group: { _id: null, amount: { $sum: MONTHLY_AMOUNT }, pledges: { $sum: 1 }, sevakIds: { $addToSet: "$sevakId" } } },
       { $project: { _id: 0, amount: 1, pledges: 1, sevaks: { $size: "$sevakIds" } } },
     ])
     .toArray();

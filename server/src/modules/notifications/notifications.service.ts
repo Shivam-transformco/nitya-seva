@@ -1,21 +1,29 @@
 import type { ObjectId } from "mongodb";
-import type { PledgeDoc, SevakDoc } from "../../domain/types.js";
+import type { Frequency, PledgeDoc, SevakDoc } from "../../domain/types.js";
 import { notFound } from "../../lib/errors.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as repo from "./notifications.repository.js";
 
 // Single place that decides who hears about what. Add email/WhatsApp delivery here later.
 
+const PER: Record<Frequency, string> = {
+  Monthly: "a month",
+  Quarterly: "a quarter",
+  "Half-yearly": "every six months",
+  Yearly: "a year",
+  "One-time": "once",
+};
+
 const pledgeLink = (pledgeId: ObjectId) => `/pledges/${pledgeId.toHexString()}`;
 
 export async function pledgeCreated(pledge: PledgeDoc, sevak: SevakDoc): Promise<void> {
-  const admins = await usersRepo.listActiveByRole("admin");
+  const admins = await usersRepo.listActiveByRole("owner", "admin");
   await repo.insertMany(
     admins.map((a) => ({
       userId: a._id,
       type: "pledge.new" as const,
       title: "New Nitya Sevak pledge",
-      body: `${sevak.name} pledged ₹${pledge.amount.toLocaleString("en-IN")} a month for ${pledge.seva}.`,
+      body: `${sevak.name} pledged ₹${pledge.amount.toLocaleString("en-IN")} ${PER[pledge.frequency]} for ${pledge.seva}.`,
       link: pledgeLink(pledge._id),
     })),
   );
@@ -27,7 +35,9 @@ export async function pledgeAssigned(pledge: PledgeDoc, sevak: SevakDoc, assigne
       userId: assigneeId,
       type: "pledge.assigned",
       title: "A sevak has been assigned to you",
-      body: `Please call ${sevak.name} about their ₹${pledge.amount.toLocaleString("en-IN")} monthly seva.`,
+      body: pledge.amount
+        ? `Please call ${sevak.name} about their ₹${pledge.amount.toLocaleString("en-IN")} ${PER[pledge.frequency]} seva.`
+        : `Please call ${sevak.name} about their seva.`,
       link: pledgeLink(pledge._id),
     },
   ]);

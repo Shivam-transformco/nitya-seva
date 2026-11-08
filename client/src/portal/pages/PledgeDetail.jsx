@@ -4,12 +4,15 @@ import {
   AUTO_DEBIT_MODES,
   CHANNEL_LABELS,
   FLAG_LABELS,
+  FREQUENCIES,
   MANDATE_LABELS,
   METHOD_LABELS,
   MODE_LABELS,
+  ORIGIN_LABELS,
   OUTCOME_LABELS,
   STATUSES,
   STATUS_LABELS,
+  can,
   currentMonth,
   defaultMethod,
   dueLabel,
@@ -17,21 +20,32 @@ import {
   formatDateTime,
   formatINR,
   monthLabel,
+  monthsBetweenGifts,
+  perLabel,
   plural,
   telLink,
   todayInput,
   waLink,
 } from "../format";
 import { Link, navigate } from "../router";
-import { DueBadge, Empty, ErrorNote, Field, Loading, ModeBadge, StatusBadge } from "../ui";
+import { DueBadge, Empty, ErrorNote, Field, Loading, ModeBadge, OriginBadge, StatusBadge } from "../ui";
 
-const CAN_PAY = ["confirmed", "paused"];
+/** Cancelled pledges were confirmed once, so their earlier payments can still be entered. */
+const CAN_PAY = ["confirmed", "paused", "cancelled"];
+
+const FREQUENCY_WORDS = { Monthly: "a month", Quarterly: "a quarter", "Half-yearly": "every six months", Yearly: "a year", "One-time": "once" };
+
+/** "₹1,100 a month", or a note that they haven't decided. */
+export function amountText(amount, frequency) {
+  return amount ? `${formatINR(amount)} ${FREQUENCY_WORDS[frequency] ?? "a month"}` : "Amount not decided yet";
+}
 
 export default function PledgeDetail({ id, user }) {
   const { data: p, error, loading, reload } = useApi(`/pledges/${id}`);
-  const isAdmin = user.role === "admin";
+  const isAdmin = can(user, "pledges.viewAll");
 
   if (!p) return error ? <ErrorNote error={error} /> : loading && <Loading />;
+  const access = p.access ?? {};
 
   const firstName = p.sevak?.name.split(" ")[0] ?? "";
   const greeting = `Hare Krishna ${firstName}! This is ${user.name} from ISKCON BACE Jiasarai, about your Nitya Seva offering.`;
@@ -45,8 +59,8 @@ export default function PledgeDetail({ id, user }) {
         <div>
           <h1>{p.sevak?.name ?? "Unknown sevak"}</h1>
           <p className="detail-sub">
-            <StatusBadge status={p.status} /> <ModeBadge setup={p.paymentSetup} /> <strong>{formatINR(p.amount)}</strong> a
-            month · {p.seva}
+            <StatusBadge status={p.status} /> <ModeBadge setup={p.paymentSetup} /> <OriginBadge origin={p.origin} />{" "}
+            <strong>{amountText(p.amount, p.frequency)}</strong> · {p.seva}
           </p>
         </div>
         {p.sevak && (
@@ -76,22 +90,31 @@ export default function PledgeDetail({ id, user }) {
           <strong>Hidden from the public counter.</strong> Still followed up and included in reports.
         </div>
       )}
+      {p.status === "paused" && p.pausedUntil && (
+        <div className="p-banner" role="note">
+          <strong>Paused until {formatDate(p.pausedUntil)}.</strong> It comes back on the due list that day.
+        </div>
+      )}
 
       <div className="detail-grid">
         <div className="detail-col">
-          <DetailsCard pledge={p} onChanged={reload} />
-          <StatusCard pledge={p} isAdmin={isAdmin} onChanged={reload} />
-          {!p.flag && <PaymentSetupCard pledge={p} onChanged={reload} />}
-          {isAdmin && <AssignCard pledge={p} onChanged={reload} />}
-          {isAdmin && <CounterCard pledge={p} onChanged={reload} />}
-          <FlagCard pledge={p} onChanged={reload} />
-          {isAdmin && <DeleteCard pledge={p} onDeleted={() => navigate("/pledges")} />}
+          <DetailsCard pledge={p} canEdit={access.work} canEditOrigin={access.manage} onChanged={reload} />
+          {access.work && <StatusCard pledge={p} canCorrect={access.manage} onChanged={reload} />}
+          {!p.flag && (access.payments || p.paymentSetup) && <PaymentSetupCard pledge={p} canEdit={access.payments} onChanged={reload} />}
+          {access.manage && <AssignCard pledge={p} onChanged={reload} />}
+          {access.manage && <CounterCard pledge={p} onChanged={reload} />}
+          {access.work && <FlagCard pledge={p} onChanged={reload} />}
+          {access.manage && p.sevak && <MergeCard pledge={p} onMerged={reload} />}
+          {access.manage && <DeleteCard pledge={p} onDeleted={() => navigate("/pledges")} />}
         </div>
 
         <div className="detail-col">
-          <FollowupForm pledge={p} onSaved={reload} />
-          {CAN_PAY.includes(p.status) && !p.flag ? (
-            <PaymentForm key={p.paymentSetup?.mode ?? "none"} pledge={p} onSaved={reload} />
+          {access.work && <FollowupForm pledge={p} onSaved={reload} />}
+          {!access.payments ? null : CAN_PAY.includes(p.status) && !p.flag ? (
+            <>
+              <PaymentForm key={p.paymentSetup?.mode ?? "none"} pledge={p} onSaved={reload} />
+              <PastPaymentsForm pledge={p} onSaved={reload} />
+            </>
           ) : (
             <section className="p-card p-card-quiet">
               <h2>Record a payment</h2>
@@ -121,14 +144,17 @@ const detailsForm = (p) => ({
   phone: p.sevak?.phone ?? "",
   email: p.sevak?.email ?? "",
   amount: String(p.amount),
+  frequency: p.frequency ?? "Monthly",
   seva: p.seva,
   message: p.message ?? "",
+  origin: p.origin,
+  givingSince: p.givingSince ?? "",
   nextFollowUpAt: localInput(p.nextFollowUpAt),
 });
 
 const CLOSED = ["lost", "cancelled"];
 
-function DetailsCard({ pledge: p, onChanged }) {
+function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => detailsForm(p));
   const [error, setError] = useState(null);
@@ -140,15 +166,18 @@ function DetailsCard({ pledge: p, onChanged }) {
     setError(null);
     const was = detailsForm(p);
     const amount = Number(form.amount);
-    if (!Number.isInteger(amount) || amount < 1) return setError(new Error("Enter the amount in whole rupees."));
+    if (!Number.isInteger(amount) || amount < 0) return setError(new Error("Enter the amount in whole rupees, or 0 if not decided."));
     if (!form.name.trim()) return setError(new Error("Enter their name."));
 
     const sevak = {};
     for (const k of ["name", "phone", "email"]) if (form[k].trim() !== was[k]) sevak[k] = form[k].trim();
     const pledge = {};
     if (amount !== p.amount) pledge.amount = amount;
+    if (form.frequency !== was.frequency) pledge.frequency = form.frequency;
     if (form.seva.trim() !== was.seva) pledge.seva = form.seva.trim();
     if (form.message.trim() !== was.message.trim()) pledge.message = form.message.trim();
+    if (form.origin !== was.origin) pledge.origin = form.origin;
+    if (form.givingSince !== was.givingSince) pledge.givingSince = form.givingSince || null;
     if (form.nextFollowUpAt !== was.nextFollowUpAt) {
       pledge.nextFollowUpAt = form.nextFollowUpAt ? new Date(form.nextFollowUpAt).toISOString() : null;
     }
@@ -180,12 +209,35 @@ function DetailsCard({ pledge: p, onChanged }) {
           <Field label="Email (optional)">
             <input type="email" maxLength={200} value={form.email} onChange={set("email")} />
           </Field>
-          <Field label="Amount a month (₹)">
-            <input type="number" min="1" step="1" inputMode="numeric" required value={form.amount} onChange={set("amount")} />
+          <Field label="Amount (₹)" hint="0 if they haven't decided yet.">
+            <input type="number" min="0" step="1" inputMode="numeric" required value={form.amount} onChange={set("amount")} />
+          </Field>
+          <Field label="How often">
+            <select value={form.frequency} onChange={set("frequency")}>
+              {FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Seva">
             <input maxLength={100} required value={form.seva} onChange={set("seva")} />
           </Field>
+          <Field label="Giving since (optional)" hint="For sevaks who gave before the portal.">
+            <input type="month" max={currentMonth()} value={form.givingSince} onChange={set("givingSince")} />
+          </Field>
+          {canEditOrigin && (
+            <Field label="Came from">
+              <select value={form.origin} onChange={set("origin")}>
+                {Object.entries(ORIGIN_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           {!CLOSED.includes(p.status) && (
             <Field label="Next follow-up" hint="Leave empty for none.">
               <input type="datetime-local" value={form.nextFollowUpAt} onChange={set("nextFollowUpAt")} />
@@ -195,7 +247,7 @@ function DetailsCard({ pledge: p, onChanged }) {
         <Field label="Their message">
           <textarea rows="3" maxLength={2000} value={form.message} onChange={set("message")} />
         </Field>
-        <p className="p-hint">Name, phone and email change on all of this sevak's pledges.</p>
+        <p className="p-hint">Name, phone and email change on all of this sevak's pledges. A new amount or frequency keeps the old one in the history.</p>
         <ErrorNote error={error} />
         <div className="btn-row">
           <button className="pbtn" disabled={busy}>
@@ -213,24 +265,46 @@ function DetailsCard({ pledge: p, onChanged }) {
     <section className="p-card">
       <div className="card-head">
         <h2>Details</h2>
-        <button
-          type="button"
-          className="pbtn pbtn-ghost pbtn-small"
-          onClick={() => {
-            setForm(detailsForm(p));
-            setError(null);
-            setEditing(true);
-          }}
-        >
-          Edit
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            className="pbtn pbtn-ghost pbtn-small"
+            onClick={() => {
+              setForm(detailsForm(p));
+              setError(null);
+              setEditing(true);
+            }}
+          >
+            Edit
+          </button>
+        )}
       </div>
       <dl className="facts">
         <dt>Phone</dt>
-        <dd>{p.sevak?.phone ?? "—"}</dd>
+        <dd>
+          {p.sevak?.phone ?? "—"}
+          {p.sevak?.otherPhones?.length > 0 && <div className="p-muted">Also: {p.sevak.otherPhones.join(", ")}</div>}
+        </dd>
         <dt>Email</dt>
         <dd>{p.sevak?.email ? <a href={`mailto:${p.sevak.email}`}>{p.sevak.email}</a> : "—"}</dd>
-        <dt>Pledged on</dt>
+        <dt>Offering</dt>
+        <dd>
+          {amountText(p.amount, p.frequency)}
+          {p.frequency && p.frequency !== "Monthly" && p.amount > 0 && (
+            <div className="p-muted">
+              {p.frequency === "One-time" ? "Not counted in monthly totals" : `About ${formatINR(p.monthly)} a month in totals`}
+            </div>
+          )}
+        </dd>
+        <dt>Came from</dt>
+        <dd>{ORIGIN_LABELS[p.origin] ?? "Website"}</dd>
+        {p.givingSince && (
+          <>
+            <dt>Giving since</dt>
+            <dd>{monthLabel(p.givingSince)}</dd>
+          </>
+        )}
+        <dt>{p.origin === "website" || p.origin === "legacy" ? "Pledged on" : "Added on"}</dt>
         <dd>{formatDate(p.createdAt)}</dd>
         <dt>Last contact</dt>
         <dd>{formatDateTime(p.lastContactAt)}</dd>
@@ -239,6 +313,22 @@ function DetailsCard({ pledge: p, onChanged }) {
         <dt>Assigned to</dt>
         <dd>{p.assignee?.name ?? "Nobody yet"}</dd>
       </dl>
+      {p.amountHistory?.length > 0 && (
+        <details className="p-more">
+          <summary>Earlier amounts ({p.amountHistory.length})</summary>
+          <ul className="amount-history">
+            {[...p.amountHistory].reverse().map((h) => (
+              <li key={h.until}>
+                {amountText(h.amount, h.frequency)}
+                <span className="p-muted">
+                  {" "}
+                  · until {formatDate(h.until)}, changed by {h.byName}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {p.message && (
         <blockquote className="sevak-message">
           <span className="p-label">Their message</span>
@@ -288,9 +378,11 @@ function DeleteCard({ pledge, onDeleted }) {
   );
 }
 
-function StatusCard({ pledge, isAdmin, onChanged }) {
+function StatusCard({ pledge, canCorrect, onChanged }) {
   const [note, setNote] = useState("");
   const [correctTo, setCorrectTo] = useState("");
+  const [pausedUntil, setPausedUntil] = useState("");
+  const canPause = pledge.allowedNextStatuses.includes("paused") || (canCorrect && correctTo === "paused");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const change = pledge.lastStatusChange;
@@ -302,6 +394,7 @@ function StatusCard({ pledge, isAdmin, onChanged }) {
       await request();
       setNote("");
       setCorrectTo("");
+      setPausedUntil("");
       onChanged();
     } catch (err) {
       setError(err);
@@ -312,7 +405,15 @@ function StatusCard({ pledge, isAdmin, onChanged }) {
 
   const setStatus = (status, correction = false) =>
     run(() =>
-      api(`/pledges/${pledge._id}/status`, { method: "PATCH", body: { status, note: note.trim() || undefined, correction } }),
+      api(`/pledges/${pledge._id}/status`, {
+        method: "PATCH",
+        body: {
+          status,
+          note: note.trim() || undefined,
+          correction,
+          ...(status === "paused" && pausedUntil && { pausedUntil: new Date(`${pausedUntil}T09:00:00+05:30`).toISOString() }),
+        },
+      }),
     );
 
   return (
@@ -340,6 +441,11 @@ function StatusCard({ pledge, isAdmin, onChanged }) {
       <Field label="Reason (optional)">
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. travelling for two months" />
       </Field>
+      {canPause && (
+        <Field label="If pausing: resume on (optional)" hint="They come back on the due list that morning.">
+          <input type="date" min={todayInput()} value={pausedUntil} onChange={(e) => setPausedUntil(e.target.value)} />
+        </Field>
+      )}
       <div className="btn-row">
         {pledge.allowedNextStatuses.map((s) => (
           <button key={s} type="button" className="pbtn pbtn-ghost" disabled={busy} onClick={() => setStatus(s)}>
@@ -347,7 +453,7 @@ function StatusCard({ pledge, isAdmin, onChanged }) {
           </button>
         ))}
       </div>
-      {isAdmin && (
+      {canCorrect && (
         <details className="p-more">
           <summary>Correct the status</summary>
           <p className="p-hint">For putting a mistake right: sets any status, outside the usual steps.</p>
@@ -381,7 +487,7 @@ const setupForm = (setup) => ({
   note: setup?.note ?? "",
 });
 
-function PaymentSetupCard({ pledge, onChanged }) {
+function PaymentSetupCard({ pledge, canEdit, onChanged }) {
   const setup = pledge.paymentSetup;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => setupForm(setup));
@@ -427,7 +533,7 @@ function PaymentSetupCard({ pledge, onChanged }) {
     run(() => api(`/pledges/${pledge._id}/payment-setup`, { method: "PUT", body }));
   }
 
-  if (setup && !editing) {
+  if (setup && (!editing || !canEdit)) {
     const m = setup.mandate;
     return (
       <section className="p-card">
@@ -461,18 +567,20 @@ function PaymentSetupCard({ pledge, onChanged }) {
         <p className="p-hint">
           Updated by {setup.updatedByName} on {formatDate(setup.updatedAt)}.
         </p>
-        <div className="btn-row">
-          <button
-            type="button"
-            className="pbtn pbtn-ghost"
-            onClick={() => {
-              setForm(setupForm(setup));
-              setEditing(true);
-            }}
-          >
-            Change
-          </button>
-        </div>
+        {canEdit && (
+          <div className="btn-row">
+            <button
+              type="button"
+              className="pbtn pbtn-ghost"
+              onClick={() => {
+                setForm(setupForm(setup));
+                setEditing(true);
+              }}
+            >
+              Change
+            </button>
+          </div>
+        )}
       </section>
     );
   }
@@ -545,6 +653,9 @@ function PaymentSetupCard({ pledge, onChanged }) {
   );
 }
 
+/** Accounts and viewers don't do follow-ups, so they aren't offered. */
+const ASSIGNABLE_ROLES = ["owner", "admin", "followup"];
+
 function AssignCard({ pledge, onChanged }) {
   const staff = useApi("/users");
   const [error, setError] = useState(null);
@@ -559,7 +670,7 @@ function AssignCard({ pledge, onChanged }) {
     }
   }
 
-  const active = staff.data?.filter((u) => u.active || u._id === pledge.assignedTo) ?? [];
+  const active = staff.data?.filter((u) => (u.active && ASSIGNABLE_ROLES.includes(u.role)) || u._id === pledge.assignedTo) ?? [];
   return (
     <section className="p-card">
       <h2>Assign</h2>
@@ -779,7 +890,7 @@ function receivedAtFromInput(date) {
 
 function PaymentForm({ pledge, onSaved }) {
   const blank = () => ({
-    amount: String(pledge.amount),
+    amount: pledge.amount ? String(pledge.amount) : "",
     month: currentMonth(),
     method: defaultMethod(pledge.paymentSetup),
     reference: "",
@@ -858,10 +969,182 @@ function PaymentForm({ pledge, onSaved }) {
   );
 }
 
+function PastPaymentsForm({ pledge, onSaved }) {
+  const step = monthsBetweenGifts(pledge.frequency);
+  const blank = () => ({
+    fromMonth: pledge.givingSince ?? "",
+    toMonth: currentMonth(),
+    amount: pledge.amount ? String(pledge.amount) : "",
+    method: defaultMethod(pledge.paymentSetup),
+    reference: "",
+  });
+  const [form, setForm] = useState(blank);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  if (!step) return null;
+
+  async function submit(e) {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    const amount = Number(form.amount);
+    if (!form.fromMonth || !form.toMonth) return setError(new Error("Choose the first and last month."));
+    if (form.fromMonth > form.toMonth) return setError(new Error("The first month must be on or before the last."));
+    if (!Number.isInteger(amount) || amount < 1) return setError(new Error("Enter the amount in whole rupees."));
+    setBusy(true);
+    try {
+      const res = await api(`/pledges/${pledge._id}/payments/bulk`, {
+        method: "POST",
+        body: { fromMonth: form.fromMonth, toMonth: form.toMonth, amount, method: form.method, reference: form.reference.trim() },
+      });
+      setResult(res);
+      setForm(blank());
+      onSaved();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className="p-card p-more-card">
+      <summary>
+        <h2>Enter past payments</h2>
+        <span className="p-muted">For sevaks who were giving before the portal</span>
+      </summary>
+      <form className="p-form" onSubmit={submit} aria-label="Enter past payments" noValidate>
+        <p className="p-muted">
+          Adds one payment {step === 1 ? "for every month" : `every ${step} months`} in the range, each with its own receipt. Months
+          that already have a payment are skipped.
+        </p>
+        <div className="p-grid-2">
+          <Field label="From">
+            <input type="month" required max={currentMonth()} value={form.fromMonth} onChange={set("fromMonth")} />
+          </Field>
+          <Field label="To">
+            <input type="month" required max={currentMonth()} value={form.toMonth} onChange={set("toMonth")} />
+          </Field>
+          <Field label="Amount each time (₹)">
+            <input type="number" min="1" step="1" inputMode="numeric" required value={form.amount} onChange={set("amount")} />
+          </Field>
+          <Field label="Paid by">
+            <select value={form.method} onChange={set("method")}>
+              {Object.entries(METHOD_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <Field label="Reference (optional)" hint="Saved on each payment, e.g. “from the old register”.">
+          <input maxLength={200} value={form.reference} onChange={set("reference")} />
+        </Field>
+        <ErrorNote error={error} />
+        {result && (
+          <p className="p-success" role="status">
+            Added {plural(result.created, "payment")}
+            {result.skipped.length > 0 && `; skipped ${plural(result.skipped.length, "month")} that already had one`}.
+          </p>
+        )}
+        <button className="pbtn" disabled={busy}>
+          {busy ? "Adding…" : "Add past payments"}
+        </button>
+      </form>
+    </details>
+  );
+}
+
+function MergeCard({ pledge, onMerged }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const me = pledge.sevak;
+
+  async function search(e) {
+    e.preventDefault();
+    setError(null);
+    setDone(null);
+    if (q.trim().length < 2) return setError(new Error("Type at least two letters or digits."));
+    try {
+      setResults((await api(`/sevaks?q=${encodeURIComponent(q.trim())}`)).filter((s) => s._id !== me._id));
+    } catch (err) {
+      setError(err);
+    }
+  }
+
+  async function merge(other) {
+    const question = `Merge ${other.name} (${other.phone}) into ${me.name}? Their ${plural(other.pledges, "pledge")}, follow-ups and payments move here, and ${other.phone} is kept as another number for ${me.name}. This can't be undone from the portal.`;
+    if (!window.confirm(question)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await api(`/sevaks/${me._id}/merge`, { method: "POST", body: { from: other._id } });
+      setDone(`Merged. ${plural(res.pledges, "pledge")} moved to ${me.name}.`);
+      setResults(null);
+      setQ("");
+      onMerged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className="p-card p-more-card">
+      <summary>
+        <h2>Same person entered twice?</h2>
+        <span className="p-muted">Merge another sevak record into {me.name}</span>
+      </summary>
+      <form className="search" onSubmit={search} role="search">
+        <input type="search" placeholder="Name, phone or email" aria-label="Find sevak to merge" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className="pbtn pbtn-ghost">Find</button>
+      </form>
+      {results &&
+        (!results.length ? (
+          <Empty>No other sevak matches.</Empty>
+        ) : (
+          <ul className="rows">
+            {results.map((s) => (
+              <li key={s._id} className="row row-static">
+                <span className="row-main">
+                  <strong>{s.name}</strong>
+                  <span className="p-muted">
+                    {s.phone}
+                    {s.email && ` · ${s.email}`} · {plural(s.pledges, "pledge")}
+                  </span>
+                </span>
+                <span className="row-meta">
+                  <button type="button" className="pbtn pbtn-ghost pbtn-small" disabled={busy} onClick={() => merge(s)}>
+                    Merge into {me.name.split(" ")[0]}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ))}
+      <ErrorNote error={error} />
+      {done && (
+        <p className="p-success" role="status">
+          {done}
+        </p>
+      )}
+    </details>
+  );
+}
+
 function History({ pledge, user, onChanged }) {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
-  const isAdmin = user.role === "admin";
+  const inBin = can(user, "bin.manage");
+  const mayDelete = (kind, mine) => mine || can(user, kind === "payment" ? "payments.manage" : "pledges.manage");
   const events = [
     ...pledge.followups.map((f) => ({ kind: "followup", at: f.createdAt, item: f, mine: f.byUserId === user._id })),
     ...pledge.payments.map((pay) => ({ kind: "payment", at: pay.createdAt, item: pay, mine: pay.recordedBy === user._id })),
@@ -872,7 +1155,7 @@ function History({ pledge, user, onChanged }) {
       kind === "payment"
         ? `Delete the ${formatINR(item.amount)} payment for ${monthLabel(item.month)} (receipt ${item.receiptNo})? Its receipt number won't be reused.`
         : "Delete this follow-up? If it was the latest one, the pledge's status and dates go back to how they were before it.";
-    if (!window.confirm(`${question}${isAdmin ? " You can restore it from Recently deleted." : ""}`)) return;
+    if (!window.confirm(`${question}${inBin ? " You can restore it from Recently deleted." : ""}`)) return;
     setError(null);
     setBusyId(item._id);
     try {
@@ -897,7 +1180,7 @@ function History({ pledge, user, onChanged }) {
             <li key={item._id} className={`tl-${kind}`}>
               <span className="tl-when">
                 {formatDateTime(at)}
-                {(isAdmin || mine) && (
+                {mayDelete(kind, mine) && (
                   <button
                     type="button"
                     className="tl-delete"

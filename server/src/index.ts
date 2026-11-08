@@ -4,9 +4,10 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { env } from "./config/env.js";
 import { getDb } from "./db/mongo.js";
 import { forbidden } from "./lib/errors.js";
-import { actorOf, requireAuth, requireRole } from "./middleware/auth.js";
+import { actorOf, requireAuth, requirePermission } from "./middleware/auth.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
+import { auditRouter } from "./modules/audit/audit.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { binRouter } from "./modules/bin/bin.routes.js";
 import { counterRouter } from "./modules/counter/counter.routes.js";
@@ -15,6 +16,7 @@ import { notificationsRouter } from "./modules/notifications/notifications.route
 import { pledgesRouter } from "./modules/pledges/pledges.routes.js";
 import { publicRouter } from "./modules/public/public.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
+import { sevaksRouter } from "./modules/sevaks/sevaks.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 
 /** Staff with a temporary password must change it before using anything else. */
@@ -44,10 +46,12 @@ export function createApp() {
   app.use("/api/auth", staffCors, authRouter);
   app.use("/api/pledges", ...staff, pledgesRouter);
   app.use("/api/notifications", ...staff, notificationsRouter);
-  app.use("/api/users", ...staff, requireRole("admin"), usersRouter);
-  app.use("/api/reports", ...staff, requireRole("admin"), reportsRouter);
-  app.use("/api/counter", ...staff, requireRole("admin"), counterRouter);
-  app.use("/api/deleted", ...staff, requireRole("admin"), binRouter);
+  app.use("/api/sevaks", ...staff, requirePermission("pledges.manage"), sevaksRouter);
+  app.use("/api/users", ...staff, usersRouter);
+  app.use("/api/reports", ...staff, requirePermission("reports.view"), reportsRouter);
+  app.use("/api/counter", ...staff, requirePermission("counter.manage"), counterRouter);
+  app.use("/api/deleted", ...staff, requirePermission("bin.manage"), binRouter);
+  app.use("/api/audit", ...staff, requirePermission("audit.view"), auditRouter);
   app.use("/api/cron", cronRouter);
 
   app.use(notFoundHandler);

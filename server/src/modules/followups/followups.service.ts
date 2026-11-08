@@ -1,5 +1,6 @@
 import type { ObjectId } from "mongodb";
 import type { z } from "zod";
+import { can } from "../../domain/permissions.js";
 import type { PledgeDoc } from "../../domain/types.js";
 import { forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
@@ -8,7 +9,7 @@ import * as bin from "../bin/bin.repository.js";
 import * as paymentsRepo from "../payments/payments.repository.js";
 import * as pledgesRepo from "../pledges/pledges.repository.js";
 import { conflictsWithPayments, isClosed, statusAfterFollowup } from "../pledges/pledges.rules.js";
-import { loadForActor } from "../pledges/pledges.service.js";
+import { loadForActor, loadToWork } from "../pledges/pledges.service.js";
 import * as repo from "./followups.repository.js";
 import type { createFollowupBody } from "./followups.schema.js";
 
@@ -18,7 +19,7 @@ export async function list(actor: Actor, pledgeId: ObjectId) {
 }
 
 export async function create(actor: Actor, pledgeId: ObjectId, input: z.infer<typeof createFollowupBody>) {
-  const pledge = await loadForActor(actor, pledgeId);
+  const pledge = await loadToWork(actor, pledgeId);
   const followup = await repo.insert({
     pledgeId,
     sevakId: pledge.sevakId,
@@ -50,6 +51,7 @@ export async function create(actor: Actor, pledgeId: ObjectId, input: z.infer<ty
   if (input.nextFollowUpAt && !closed) set.nextFollowUpAt = input.nextFollowUpAt;
   // Without a new date the pledge drops off the "due" list instead of nagging forever.
   const unset: (keyof PledgeDoc)[] = input.nextFollowUpAt && !closed ? [] : ["nextFollowUpAt"];
+  if (nextStatus && nextStatus !== "paused") unset.push("pausedUntil");
   const updated = await pledgesRepo.update(pledgeId, set, unset);
 
   await audit.record(actor.id, "followup.create", "pledge", pledgeId, {
@@ -68,7 +70,7 @@ export async function remove(actor: Actor, pledgeId: ObjectId, followupId: Objec
   const pledge = await loadForActor(actor, pledgeId);
   const followup = await repo.findById(followupId);
   if (!followup || !followup.pledgeId.equals(pledgeId)) throw notFound("Follow-up");
-  if (actor.role !== "admin" && !followup.byUserId.equals(actor.id)) {
+  if (!can(actor.role, "pledges.manage") && !followup.byUserId.equals(actor.id)) {
     throw forbidden("Only the person who logged this follow-up, or an admin, can delete it.");
   }
 

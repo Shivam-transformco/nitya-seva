@@ -13,6 +13,7 @@ import { notFlagged } from "../counter/counter.rules.js";
 import * as sevaksRepo from "../sevaks/sevaks.repository.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as pledgesRepo from "../pledges/pledges.repository.js";
+import { MONTHLY_AMOUNT, originOf } from "../pledges/pledges.rules.js";
 
 export async function summary() {
   const [pledges, payments] = await Promise.all([collections.pledges(), collections.payments()]);
@@ -20,7 +21,7 @@ export async function summary() {
     pledges
       .aggregate<{ _id: PledgeStatus; count: number; amount: number }>([
         { $match: notFlagged },
-        { $group: { _id: "$status", count: { $sum: 1 }, amount: { $sum: "$amount" } } },
+        { $group: { _id: "$status", count: { $sum: 1 }, amount: { $sum: MONTHLY_AMOUNT } } },
       ])
       .toArray(),
     pledges.countDocuments({ ...notFlagged, assignedTo: { $exists: false }, status: { $in: ["new", "contacted"] } }),
@@ -74,7 +75,7 @@ export async function paymentModes(from: string, to: string) {
           $group: {
             _id: { mode: "$paymentSetup.mode", mandate: "$paymentSetup.mandate.status" },
             count: { $sum: 1 },
-            amount: { $sum: "$amount" },
+            amount: { $sum: MONTHLY_AMOUNT },
           },
         },
         { $project: { _id: 0, mode: { $ifNull: ["$_id.mode", null] }, mandate: { $ifNull: ["$_id.mandate", null] }, count: 1, amount: 1 } },
@@ -143,7 +144,11 @@ export async function* pledgesCsv(): AsyncGenerator<string> {
     "Email",
     "Seva",
     "Amount",
+    "Frequency",
+    "Per month",
     "Status",
+    "Came from",
+    "Giving since",
     "Assigned to",
     "Last contact",
     "Next follow-up",
@@ -171,7 +176,11 @@ export async function* pledgesCsv(): AsyncGenerator<string> {
         s?.email,
         p.seva,
         p.amount,
+        p.frequency,
+        p.monthly ?? p.amount,
         p.status,
+        originOf(p),
+        p.givingSince ?? "",
         p.assignedTo ? users.get(p.assignedTo.toHexString()) : "",
         p.lastContactAt ?? "",
         p.nextFollowUpAt ?? "",

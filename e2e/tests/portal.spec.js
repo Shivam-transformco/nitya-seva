@@ -240,7 +240,8 @@ test("the admin sees the money and activity in the dashboard and reports", async
   const csv = await readFile(await download.path(), "utf8");
   expect(csv).toContain(SEVAK.name);
   expect(csv).toContain("Legacy Devotee");
-  expect(csv).toContain(`${SEVAK.amount},confirmed,${DEVOTEE.name}`);
+  expect(csv).toContain(`${SEVAK.amount},Monthly,${SEVAK.amount},confirmed,website,,${DEVOTEE.name}`);
+  expect(csv).toContain("501,Monthly,501,new,legacy,");
   expect(csv).toContain(",ecs,active,SBI,SBIN7000123,5");
 });
 
@@ -375,7 +376,7 @@ test("staff correct the sevak's details and amount", async () => {
 
   await form.getByLabel("Phone").fill("+91 98765 43210");
   await form.getByLabel(/^Email/).fill("radha.devi@example.org");
-  await form.getByLabel(/^Amount a month/).fill("1200");
+  await form.getByLabel(/^Amount/).fill("1200");
   await form.getByLabel("Next follow-up").fill("2030-02-01T10:00");
   await form.getByRole("button", { name: "Save details" }).click();
   await expect(devotee.locator(".detail-sub")).toContainText("₹1,200");
@@ -430,6 +431,140 @@ test("an admin deletes a payment and a pledge, and restores them", async () => {
   await expect(rows).toHaveCount(1);
   await expect(rows).toContainText(`Follow-up · ${SEVAK.name}`);
   expect((await devotee.request.get(`${API_URL}/api/deleted`)).status()).toBe(403);
+});
+
+/** A signed-in API session for a new staff member, past the forced password change. */
+async function staffSession(playwright, email, temporary) {
+  const ctx = await playwright.request.newContext({ baseURL: API_URL });
+  expect((await ctx.post("/api/auth/login", { data: { email, password: temporary } })).ok()).toBe(true);
+  const changed = await ctx.post("/api/auth/password", { data: { currentPassword: temporary, newPassword: `${temporary}-own` } });
+  expect(changed.ok()).toBe(true);
+  return ctx;
+}
+
+test("only owners manage admins; accounts and viewers see just their part", async ({ playwright }) => {
+  const add = async (name, role) => {
+    const email = `${name.split(" ")[0].toLowerCase()}.${role}@example.org`;
+    const temporaryPassword = `${role}-temporary-1`;
+    const res = await admin.request.post(`${API_URL}/api/users`, { data: { name, email, role, temporaryPassword } });
+    expect(res.status()).toBe(201);
+    return staffSession(playwright, email, temporaryPassword);
+  };
+  const asAdmin = await add("Asha Admin", "admin");
+  const asAccounts = await add("Kiran Accounts", "accounts");
+  const asViewer = await add("Vani Viewer", "viewer");
+  const ownerId = (await (await admin.request.get(`${API_URL}/api/auth/me`)).json()).data._id;
+  const newUser = (role) => ({ name: `New ${role}`, email: `new-${role}@example.org`, role, temporaryPassword: "temporary-pass-9" });
+
+  // An admin runs things but can't touch owners or other admins.
+  expect((await asAdmin.post("/api/users", { data: newUser("owner") })).status()).toBe(403);
+  expect((await asAdmin.post("/api/users", { data: newUser("admin") })).status()).toBe(403);
+  expect((await asAdmin.post("/api/users", { data: newUser("followup") })).status()).toBe(201);
+  expect((await asAdmin.patch(`/api/users/${ownerId}`, { data: { active: false } })).status()).toBe(403);
+  expect((await asAdmin.get("/api/audit")).status()).toBe(403);
+  const bin = (await (await asAdmin.get("/api/deleted")).json()).data.items;
+  expect((await asAdmin.delete(`/api/deleted/${bin[0]._id}`)).status()).toBe(403);
+  expect((await admin.request.patch(`${API_URL}/api/users/${ownerId}`, { data: { role: "admin" } })).status()).toBe(400);
+
+  // Accounts see every pledge and the money, but don't work follow-ups.
+  const pledges = (await (await asAccounts.get(`/api/pledges?q=${encodeURIComponent(SEVAK.name)}`)).json()).data;
+  expect(pledges.total).toBe(1);
+  const pledgeId = pledges.items[0]._id;
+  const detail = (await (await asAccounts.get(`/api/pledges/${pledgeId}`)).json()).data;
+  expect(detail.access).toEqual({ work: false, payments: true, manage: false });
+  expect((await asAccounts.patch(`/api/pledges/${pledgeId}/status`, { data: { status: "paused" } })).status()).toBe(403);
+  expect((await asAccounts.get("/api/reports/pledges.csv")).status()).toBe(200);
+  expect((await asAccounts.get("/api/counter")).status()).toBe(403);
+
+  // Viewers get totals, never sevaks' names or numbers.
+  expect((await asViewer.get("/api/reports/summary")).status()).toBe(200);
+  expect((await asViewer.get("/api/reports/pledges.csv")).status()).toBe(403);
+  expect((await asViewer.get(`/api/pledges/${pledgeId}`)).status()).toBe(404);
+  expect((await (await asViewer.get("/api/pledges")).json()).data.total).toBe(0);
+  await Promise.all([asAdmin.dispose(), asAccounts.dispose(), asViewer.dispose()]);
+
+  await nav(admin, "Activity").click();
+  await admin.getByRole("tab", { name: "Staff" }).click();
+  const newest = admin.locator(".rows li").first();
+  await expect(newest).toContainText("Asha Admin · Added a staff member");
+  await expect(newest).toContainText("role: followup");
+  await nav(admin, "Staff").click();
+  await expect(admin.getByLabel("Role for Asha Admin")).toHaveValue("admin");
+});
+
+test("a Google Form response and an earlier giver are added by hand", async () => {
+  const before = await publicStats(admin);
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("link", { name: "Add pledge" }).click();
+  const form = admin.getByRole("form", { name: "Add a pledge" });
+  await form.getByLabel("Name").fill("Form Devotee");
+  await form.getByLabel("Phone").fill("90000 00001");
+  await expect(form.getByLabel("Came from")).toHaveValue("google_form");
+  await form.getByLabel("Count this pledge on the website counter").uncheck();
+  await form.getByRole("button", { name: "Save and add another" }).click();
+  await expect(admin.getByRole("status")).toContainText("Added Form Devotee.");
+  await expect(form.getByLabel("Name")).toHaveValue("");
+
+  await form.getByLabel("Name").fill("Old Sevak");
+  await form.getByLabel("Phone").fill("90000 00002");
+  await form.getByLabel("Came from").selectOption("pre_website");
+  await expect(form.getByLabel("Status")).toHaveValue("confirmed");
+  await form.getByLabel("Amount (₹)").fill("3000");
+  await form.getByLabel("How often").selectOption("Quarterly");
+  await form.getByLabel(/^Giving since/).fill("2024-01");
+  await expect(form.getByLabel("Count this pledge on the website counter")).not.toBeChecked();
+  await form.getByLabel("Count this pledge on the website counter").check();
+  await form.getByRole("button", { name: "Save pledge" }).click();
+
+  await expect(admin.getByRole("heading", { name: "Old Sevak" })).toBeVisible();
+  await expect(admin.locator(".detail-sub")).toContainText("₹3,000 a quarter");
+  await expect(admin.locator(".detail-sub .badge-origin")).toHaveText("Before the website");
+  const details = admin.locator(".p-card", { has: admin.getByRole("heading", { name: "Details" }) });
+  await expect(details).toContainText("Jan 2024");
+  await expect(details).toContainText("About ₹1,000 a month in totals");
+  // The quarterly gift counts as ₹1,000 a month; the undecided, hidden form response adds nothing.
+  expect(await publicStats(admin)).toMatchObject({ totalPledged: before.totalPledged + 1000, totalSewaks: before.totalSewaks + 1 });
+
+  const past = admin.locator("details", { hasText: "Enter past payments" });
+  await past.locator("summary").click();
+  const pastForm = admin.getByRole("form", { name: "Enter past payments" });
+  await expect(pastForm.getByLabel("From", { exact: true })).toHaveValue("2024-01");
+  await pastForm.getByLabel("To", { exact: true }).fill("2024-12");
+  await pastForm.getByLabel(/^Reference/).fill("Old register");
+  await pastForm.getByRole("button", { name: "Add past payments" }).click();
+  await expect(pastForm.getByRole("status")).toHaveText("Added 4 payments.");
+  await expect(admin.locator(".timeline li")).toHaveCount(4);
+  await expect(admin.locator(".timeline")).toContainText("Payment ₹3,000 for Oct 2024");
+  await pastForm.getByLabel("To", { exact: true }).fill("2024-12");
+  await pastForm.getByRole("button", { name: "Add past payments" }).click();
+  await expect(pastForm.getByRole("status")).toHaveText("Added 0 payments; skipped 4 months that already had one.");
+
+  const status = admin.locator(".p-card", { has: admin.getByRole("heading", { name: "Status" }) });
+  await status.getByLabel(/resume on/).fill("2030-03-01");
+  await status.getByRole("button", { name: "Mark paused" }).click();
+  await expect(admin.locator(".p-banner", { hasText: "Paused until" })).toContainText("Paused until 1 Mar 2030");
+  await expect(details).toContainText("1 Mar 2030");
+
+  await nav(admin, "Pledges").click();
+  await admin.getByLabel("Came from").selectOption("google_form");
+  await expect(admin.locator(".rows-count")).toHaveText("1 pledge");
+  await expect(admin.getByRole("link", { name: /Form Devotee/ })).toContainText("Amount not set");
+});
+
+test("the same person entered twice is merged into one sevak", async () => {
+  await admin.getByLabel("Came from").selectOption("pre_website");
+  await admin.getByRole("link", { name: /Old Sevak/ }).click();
+  const merge = admin.locator("details", { hasText: "Same person entered twice?" });
+  await merge.locator("summary").click();
+  await merge.getByLabel("Find sevak to merge").fill("Form Devotee");
+  await merge.getByRole("button", { name: "Find" }).click();
+  await merge.getByRole("button", { name: "Merge into Old" }).click();
+  await expect(merge.getByRole("status")).toHaveText("Merged. 1 pledge moved to Old Sevak.");
+  await expect(admin.locator(".facts")).toContainText("Also: +919000000001");
+
+  const found = await (await admin.request.get(`${API_URL}/api/pledges?q=9000000001`)).json();
+  expect(found.data.total).toBe(2);
+  expect(found.data.items.every((p) => p.sevak.name === "Old Sevak")).toBe(true);
 });
 
 test("the daily job only runs with its secret", async ({ request }) => {

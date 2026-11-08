@@ -1,9 +1,8 @@
 import { pledgesCsvUrl, qs, useApi } from "../api";
-import { MANDATE_LABELS, METHOD_LABELS, MODE_LABELS, ROLE_LABELS, formatINR, monthLabel, plural } from "../format";
-import { Link } from "../router";
-import { Empty, ErrorNote, Loading, PageHead } from "../ui";
+import { MANDATE_LABELS, METHOD_LABELS, MODE_LABELS, ROLE_LABELS, can, formatINR, monthLabel, plural } from "../format";
+import { Empty, ErrorNote, Loading, MaybeLink, PageHead } from "../ui";
 
-function PaymentModes() {
+function PaymentModes({ linked }) {
   const { data, error, loading } = useApi("/reports/payment-modes");
   return (
     <section className="p-card">
@@ -28,9 +27,9 @@ function PaymentModes() {
               {data.modes.map((m) => (
                 <tr key={`${m.mode}-${m.mandate}`}>
                   <td>
-                    <Link to={`/pledges${qs({ mode: m.mode ?? "none", mandate: m.mandate ?? "" })}`}>
+                    <MaybeLink when={linked} to={`/pledges${qs({ mode: m.mode ?? "none", mandate: m.mandate ?? "" })}`}>
                       {m.mode ? MODE_LABELS[m.mode] : "Not recorded"}
-                    </Link>
+                    </MaybeLink>
                     {m.mandate && <div className="p-muted">Mandate: {MANDATE_LABELS[m.mandate].toLowerCase()}</div>}
                   </td>
                   <td>{m.count}</td>
@@ -73,7 +72,7 @@ function PaymentModes() {
   );
 }
 
-export default function Reports() {
+export default function Reports({ user }) {
   const collections = useApi("/reports/collections");
   const activity = useApi("/reports/activity");
   const months = collections.data?.months ?? [];
@@ -84,9 +83,11 @@ export default function Reports() {
       <PageHead
         title="Reports"
         actions={
-          <a className="pbtn pbtn-ghost" href={pledgesCsvUrl}>
-            Download all pledges (CSV)
-          </a>
+          can(user, "reports.export") && (
+            <a className="pbtn pbtn-ghost" href={pledgesCsvUrl}>
+              Download all pledges (CSV)
+            </a>
+          )
         }
       />
 
@@ -129,7 +130,7 @@ export default function Reports() {
         )}
       </section>
 
-      <PaymentModes />
+      <PaymentModes linked={can(user, "pledges.viewAll")} />
 
       <section className="p-card">
         <h2>Follow-up activity</h2>

@@ -4,7 +4,7 @@ import { actorOf } from "../../middleware/auth.js";
 import { createAdjustmentBody, targetBody, updateAdjustmentBody } from "./counter.schema.js";
 import * as service from "./counter.service.js";
 
-/** Mounted behind requireRole("admin"). */
+/** Mounted behind `counter.manage`. */
 export const counterRouter = Router();
 
 counterRouter.get("/", async (_req, res) => {

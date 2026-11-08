@@ -47,6 +47,8 @@ for await (const s of legacy.find().sort({ createdAt: 1 })) {
         seva,
         amount,
         frequency: "Monthly",
+        monthly: amount,
+        origin: "legacy",
         status: "new",
         message,
         consent: s.consent === "yes" || s.consent === true,

@@ -15,8 +15,12 @@ export async function list(): Promise<UserDoc[]> {
   return (await collections.users()).find().sort({ active: -1, name: 1 }).toArray();
 }
 
-export async function listActiveByRole(role: Role): Promise<UserDoc[]> {
-  return (await collections.users()).find({ role, active: true }).toArray();
+export async function listActiveByRole(...roles: Role[]): Promise<UserDoc[]> {
+  return (await collections.users()).find({ role: { $in: roles }, active: true }).toArray();
+}
+
+export async function countActiveByRole(role: Role): Promise<number> {
+  return (await collections.users()).countDocuments({ role, active: true });
 }
 
 export async function insert(user: Omit<UserDoc, "_id" | "createdAt" | "updatedAt">): Promise<UserDoc> {

@@ -1,5 +1,14 @@
 import { z } from "zod";
-import { AUTO_DEBIT_MODES, MANDATE_STATUSES, PAYMENT_MODES, PLEDGE_FLAGS, PLEDGE_STATUSES } from "../../domain/types.js";
+import {
+  AUTO_DEBIT_MODES,
+  FREQUENCIES,
+  MANDATE_STATUSES,
+  MANUAL_ORIGINS,
+  PAYMENT_MODES,
+  PLEDGE_FLAGS,
+  PLEDGE_ORIGINS,
+  PLEDGE_STATUSES,
+} from "../../domain/types.js";
 import { MONTH_RE } from "../../lib/dates.js";
 import { objectId, pagination } from "../../lib/http.js";
 import { sevakEmail, sevakName, sevakPhone } from "../public/public.schema.js";
@@ -16,26 +25,57 @@ export const listPledgesQuery = pagination.extend({
   /** How they pay; "none" = not recorded yet. */
   mode: z.enum([...PAYMENT_MODES, "none"]).optional(),
   mandate: z.enum(MANDATE_STATUSES).optional(),
+  origin: z.enum(PLEDGE_ORIGINS).optional(),
+  frequency: z.enum(FREQUENCIES).optional(),
   q: z.string().trim().min(2).max(100).optional(),
   sort: z.enum(["newest", "oldest", "nextFollowUp"]).default("newest"),
 });
+
+const futureDate = z.coerce.date().refine((d) => d.getTime() > Date.now() - 86_400_000, "must be in the future");
 
 export const updateStatusBody = z.object({
   status: z.enum(PLEDGE_STATUSES),
   note: z.string().trim().max(1000).optional(),
   /** Admins may set any status to put a mistake right, outside the usual lifecycle. */
   correction: z.boolean().default(false),
+  /** With "paused": when they said they'd resume. */
+  pausedUntil: futureDate.optional(),
 });
+
+/** 0 means they haven't decided yet (common for Google Form responses). */
+const amount = z.number().int().min(0).max(10_00_000);
+const seva = z.string().trim().min(1, "is required").max(100);
+const month = z.string().regex(MONTH_RE, "must look like 2023-04");
 
 export const editPledgeBody = z
   .object({
-    amount: z.number().int().min(1).max(10_00_000).optional(),
-    seva: z.string().trim().min(1, "is required").max(100).optional(),
+    amount: amount.optional(),
+    frequency: z.enum(FREQUENCIES).optional(),
+    seva: seva.optional(),
     message: z.string().trim().max(2000).optional(),
+    origin: z.enum(PLEDGE_ORIGINS).optional(),
+    /** null clears it. */
+    givingSince: month.nullable().optional(),
     /** null clears it. */
     nextFollowUpAt: z.coerce.date().nullable().optional(),
   })
   .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "nothing to change" });
+
+export const createPledgeBody = z.object({
+  name: sevakName,
+  phone: sevakPhone,
+  email: sevakEmail.default(""),
+  amount,
+  frequency: z.enum(FREQUENCIES).default("Monthly"),
+  seva,
+  message: z.string().trim().max(2000).default(""),
+  origin: z.enum(MANUAL_ORIGINS),
+  status: z.enum(["new", "contacted", "confirmed", "paused"]).default("new"),
+  givingSince: month.optional(),
+  countOnCounter: z.boolean().default(true),
+  assignedTo: objectId.optional(),
+  nextFollowUpAt: z.coerce.date().optional(),
+});
 
 export const editSevakBody = z
   .object({ name: sevakName.optional(), phone: sevakPhone.optional(), email: sevakEmail.optional() })

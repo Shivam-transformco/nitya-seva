@@ -1,12 +1,13 @@
 import { useApi } from "../api";
-import { STATUSES, STATUS_LABELS, formatINR, monthLabel, plural } from "../format";
+import { STATUSES, STATUS_LABELS, can, formatINR, monthLabel, plural } from "../format";
 import { Link } from "../router";
-import { ErrorNote, Loading, PageHead } from "../ui";
+import { ErrorNote, Loading, MaybeLink, PageHead } from "../ui";
 import { PledgeRows } from "./Pledges";
 
-export default function Dashboard() {
+export default function Dashboard({ user }) {
+  const seesAll = can(user, "pledges.viewAll");
   const summary = useApi("/reports/summary");
-  const recent = useApi("/pledges?limit=5");
+  const recent = useApi(seesAll ? "/pledges?limit=5" : null);
   const s = summary.data;
 
   return (
@@ -28,44 +29,46 @@ export default function Dashboard() {
               <strong>{formatINR(s.collectedThisMonth.amount)}</strong>
               <span className="p-muted">{plural(s.collectedThisMonth.payments, "payment")} recorded</span>
             </div>
-            <Link to="/pledges?due=true" className="stat-card stat-link">
+            <MaybeLink when={seesAll} to="/pledges?due=true" className={`stat-card${seesAll ? " stat-link" : ""}`}>
               <span className="p-label">Follow-ups due</span>
               <strong>{s.followupsDue}</strong>
               <span className="p-muted">by end of today</span>
-            </Link>
-            <Link to="/pledges?assignedTo=none" className="stat-card stat-link">
+            </MaybeLink>
+            <MaybeLink when={seesAll} to="/pledges?assignedTo=none" className={`stat-card${seesAll ? " stat-link" : ""}`}>
               <span className="p-label">Waiting for a devotee</span>
               <strong>{s.unassigned}</strong>
               <span className="p-muted">new or contacted, not assigned</span>
-            </Link>
+            </MaybeLink>
           </div>
 
           <section className="p-card">
             <div className="p-card-head">
               <h2>Pledges by status</h2>
-              {s.flagged > 0 && <Link to="/pledges?flagged=true">{plural(s.flagged, "pledge")} marked not genuine</Link>}
+              {s.flagged > 0 && seesAll && <Link to="/pledges?flagged=true">{plural(s.flagged, "pledge")} marked not genuine</Link>}
             </div>
             <div className="status-strip">
               {STATUSES.map((st) => (
-                <Link key={st} to={`/pledges?status=${st}`} className={`status-cell badge-${st}`}>
+                <MaybeLink key={st} when={seesAll} to={`/pledges?status=${st}`} className={`status-cell badge-${st}`}>
                   <span>{STATUS_LABELS[st]}</span>
                   <strong>{s.statuses[st].count}</strong>
                   <small>{formatINR(s.statuses[st].amount)}/mo</small>
-                </Link>
+                </MaybeLink>
               ))}
             </div>
           </section>
         </>
       )}
 
-      <section className="p-card">
-        <div className="p-card-head">
-          <h2>Newest pledges</h2>
-          <Link to="/pledges">See all</Link>
-        </div>
-        <ErrorNote error={recent.error} />
-        {recent.data ? <PledgeRows items={recent.data.items} showAssignee /> : recent.loading && <Loading />}
-      </section>
+      {seesAll && (
+        <section className="p-card">
+          <div className="p-card-head">
+            <h2>Newest pledges</h2>
+            <Link to="/pledges">See all</Link>
+          </div>
+          <ErrorNote error={recent.error} />
+          {recent.data ? <PledgeRows items={recent.data.items} showAssignee /> : recent.loading && <Loading />}
+        </section>
+      )}
     </>
   );
 }

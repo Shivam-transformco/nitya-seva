@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { body, idParam, ok, query } from "../../lib/http.js";
-import { actorOf, requireRole } from "../../middleware/auth.js";
+import { actorOf, requirePermission } from "../../middleware/auth.js";
 import * as bin from "../bin/bin.service.js";
 import { followupsRouter } from "../followups/followups.routes.js";
 import { paymentsRouter } from "../payments/payments.routes.js";
 import {
   assignBody,
   counterVisibilityBody,
+  createPledgeBody,
   deleteBody,
   editPledgeBody,
   editSevakBody,
@@ -23,6 +24,10 @@ pledgesRouter.get("/", async (req, res) => {
   ok(res, await service.list(actorOf(req), query(req, listPledgesQuery)));
 });
 
+pledgesRouter.post("/", requirePermission("pledges.manage"), async (req, res) => {
+  ok(res, await service.create(actorOf(req), body(req, createPledgeBody)), 201);
+});
+
 pledgesRouter.get("/:id", async (req, res) => {
   ok(res, await service.detail(actorOf(req), idParam(req)));
 });
@@ -31,7 +36,7 @@ pledgesRouter.patch("/:id", async (req, res) => {
   ok(res, await service.edit(actorOf(req), idParam(req), body(req, editPledgeBody)));
 });
 
-pledgesRouter.delete("/:id", requireRole("admin"), async (req, res) => {
+pledgesRouter.delete("/:id", requirePermission("pledges.manage"), async (req, res) => {
   await bin.deletePledge(actorOf(req), idParam(req), body(req, deleteBody).reason);
   ok(res, null);
 });
@@ -41,15 +46,14 @@ pledgesRouter.patch("/:id/sevak", async (req, res) => {
 });
 
 pledgesRouter.patch("/:id/status", async (req, res) => {
-  const { status, note, correction } = body(req, updateStatusBody);
-  ok(res, await service.updateStatus(actorOf(req), idParam(req), status, note, correction));
+  ok(res, await service.updateStatus(actorOf(req), idParam(req), body(req, updateStatusBody)));
 });
 
 pledgesRouter.post("/:id/status/undo", async (req, res) => {
   ok(res, await service.undoStatus(actorOf(req), idParam(req)));
 });
 
-pledgesRouter.patch("/:id/assign", requireRole("admin"), async (req, res) => {
+pledgesRouter.patch("/:id/assign", requirePermission("pledges.manage"), async (req, res) => {
   ok(res, await service.assign(actorOf(req), idParam(req), body(req, assignBody).userId));
 });
 
@@ -62,7 +66,7 @@ pledgesRouter.delete("/:id/flag", async (req, res) => {
   ok(res, await service.unflag(actorOf(req), idParam(req)));
 });
 
-pledgesRouter.patch("/:id/counter", requireRole("admin"), async (req, res) => {
+pledgesRouter.patch("/:id/counter", requirePermission("pledges.manage"), async (req, res) => {
   ok(res, await service.setCounterVisibility(actorOf(req), idParam(req), body(req, counterVisibilityBody).hidden));
 });
 

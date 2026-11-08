@@ -1,7 +1,16 @@
 import type { ObjectId } from "mongodb";
 
-export const ROLES = ["admin", "followup"] as const;
+export const ROLES = ["owner", "admin", "accounts", "viewer", "followup"] as const;
 export type Role = (typeof ROLES)[number];
+
+/** Where a pledge came from. Pledges from before this field existed are "website" or, with a legacyId, "legacy". */
+export const PLEDGE_ORIGINS = ["website", "legacy", "pre_website", "google_form", "staff"] as const;
+export type PledgeOrigin = (typeof PLEDGE_ORIGINS)[number];
+/** Origins staff can choose when adding a pledge by hand. */
+export const MANUAL_ORIGINS = ["pre_website", "google_form", "staff"] as const satisfies readonly PledgeOrigin[];
+
+export const FREQUENCIES = ["Monthly", "Quarterly", "Half-yearly", "Yearly", "One-time"] as const;
+export type Frequency = (typeof FREQUENCIES)[number];
 
 export const PLEDGE_STATUSES = ["new", "contacted", "confirmed", "paused", "cancelled", "lost"] as const;
 export type PledgeStatus = (typeof PLEDGE_STATUSES)[number];
@@ -71,6 +80,8 @@ export interface SevakDoc {
   name: string;
   /** E.164, e.g. +919971932510 */
   phone: string;
+  /** Numbers of sevak records merged into this one, so they still find this sevak. */
+  otherPhones?: string[];
   email: string;
   createdAt: Date;
   updatedAt: Date;
@@ -80,14 +91,23 @@ export interface PledgeDoc {
   _id: ObjectId;
   sevakId: ObjectId;
   seva: string;
-  /** Whole rupees. */
+  /** Whole rupees per gift; 0 while the sevak hasn't decided. */
   amount: number;
-  frequency: "Monthly";
+  frequency: Frequency;
+  /** Whole rupees a month this works out to, used by the counter and reports. Missing on old monthly pledges (= amount). */
+  monthly?: number;
+  /** Earlier amounts, newest last, each with when it stopped applying. */
+  amountHistory?: { amount: number; frequency: Frequency; until: Date; by: ObjectId }[];
+  origin?: PledgeOrigin;
+  /** "YYYY-MM": when they started giving, for sevaks from before the website. */
+  givingSince?: string;
+  /** Set while paused, when they said they'd resume. */
+  pausedUntil?: Date;
   status: PledgeStatus;
   assignedTo?: ObjectId;
   message: string;
   consent: boolean;
-  source: { submittedFrom: string; ip?: string; userAgent?: string };
+  source: { submittedFrom: string; ip?: string; userAgent?: string; addedBy?: ObjectId };
   nextFollowUpAt?: Date;
   lastContactAt?: Date;
   /** Set when staff decide this isn't a genuine pledge. */

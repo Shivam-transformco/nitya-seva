@@ -6,7 +6,12 @@
 | --- | --- |
 | **Visitors** (public site) | Submit a pledge form; see the live counter. |
 | **Follow-up devotees** (`followup` role) | See the pledges assigned to them, call the sevak, log every call, set the next follow-up date, record payments they collect. |
-| **Admins** (`admin` role) | Everything a follow-up devotee can do, for all pledges; plus assign pledges, manage staff accounts, see reports and export data. |
+| **Viewers** (`viewer`) | Dashboard totals and reports only; no sevak names, numbers or CSV. |
+| **Accounts** (`accounts`) | See every pledge, record and delete payments, set how sevaks pay, reports and CSV. No statuses, follow-ups or assigning. |
+| **Admins** (`admin`) | Everything for all pledges: add pledges by hand, assign, merge sevaks, delete and restore, run the counter, add staff below admin. |
+| **Owners** (`owner`) | Everything an admin can do, plus managing admins and owners, the Activity log and "delete for good". There is always at least one active owner. |
+
+What each role may do is one table, `src/domain/permissions.ts` (`can(role, permission)`); nothing else checks role names. `/api/auth/me` sends the user's permissions so the portal only shows what will work, and each pledge's detail has `access: { work, payments, manage }`. The server still checks every request.
 
 Notifications are in-portal only for now. Payments are recorded by hand (no gateway).
 
@@ -51,17 +56,19 @@ server/
     modules/
       public/             submit, stats, health
       auth/               login, logout, me, change password
-      users/              staff accounts (admin only)
-      pledges/            list, detail, update status, assign
+      users/              staff accounts and roles
+      pledges/            list, detail, add by hand, edit, status, assign
+      sevaks/             search, merge duplicates
       followups/          call logs per pledge
       payments/           manual payment records, receipt numbers
       notifications/      in-portal notifications
       reports/            summary, monthly collections, volunteer activity, CSV
       bin/                deleting pledges and payments, "Recently deleted", restore
-      audit/              audit log writer
+      audit/              audit log writer and the owners' Activity feed
       cron/               daily job endpoint
   scripts/
-    create-admin.ts       First admin account
+    create-admin.ts       First owner account
+    set-role.ts           Change an existing account's role
     migrate-submissions.ts  Old `submissions` collection to sevaks + pledges
     ensure-indexes.ts
   tests/                  vitest unit tests for pure logic
@@ -73,17 +80,21 @@ server/
 Money is stored as **whole rupees in an integer** (all offerings are whole rupees). Dates are UTC `Date`s; months are `"YYYY-MM"` strings in IST.
 
 ### `users` (staff)
-`name, email (unique, lowercase), passwordHash, role: "admin" | "followup", active, tokenVersion, mustChangePassword, lastLoginAt, createdAt, updatedAt`
+`name, email (unique, lowercase), passwordHash, role: "owner" | "admin" | "accounts" | "viewer" | "followup", active, tokenVersion, mustChangePassword, lastLoginAt, createdAt, updatedAt`
 
 `tokenVersion` is embedded in the session token; bumping it (password change, deactivation) logs the user out everywhere.
 
 ### `sevaks` (the people who pledge)
-`name, phone (E.164, unique), email, createdAt, updatedAt`
+`name, phone (E.164, unique), otherPhones?, email, createdAt, updatedAt`
 
-One sevak can have several pledges over time. Phone is the identity because it is required and is how devotees reach them.
+One sevak can have several pledges over time. Phone is the identity because it is required and is how devotees reach them. Merging two records of the same person (`POST /api/sevaks/:id/merge`) moves everything to one and keeps the other's number in `otherPhones`, which phone lookups and search also match. The removed record is kept in the audit log.
 
 ### `pledges`
-`sevakId, seva, amount, frequency: "Monthly", status, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent? }, nextFollowUpAt?, lastContactAt?, flag?, hiddenFromCounter?, paymentSetup?, lastStatusChange?, legacyId?, createdAt, updatedAt`
+`sevakId, seva, amount, frequency, monthly?, amountHistory?, origin?, givingSince?, status, pausedUntil?, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent?, addedBy? }, nextFollowUpAt?, lastContactAt?, flag?, hiddenFromCounter?, paymentSetup?, lastStatusChange?, legacyId?, createdAt, updatedAt`
+
+- `frequency`: `Monthly | Quarterly | Half-yearly | Yearly | One-time`; `amount` is per gift, and 0 means not decided yet (common for Google Form responses). `monthly` is the equivalent used by the counter, dashboard and reports (one-time adds 0); pledges from before it existed fall back to `amount`. Changing amount or frequency appends the old values to `amountHistory`.
+- `origin`: `website | legacy | pre_website | google_form | staff`. Older pledges have none and read as `website`, or `legacy` when they have a `legacyId`. Staff add the last three by hand (`POST /api/pledges`), reusing the sevak when the phone is known, choosing whether it counts on the counter. `givingSince` (`YYYY-MM`) is when an earlier giver started.
+- `pausedUntil`: set when pausing with a resume date; it becomes `nextFollowUpAt`, and is cleared when the pledge leaves `paused`.
 
 `lastStatusChange: { from, to, by, at, followupId?, nextFollowUpAt? }` is the most recent status change, so it can be undone; see "Corrections" below.
 
@@ -120,15 +131,17 @@ Logging a follow-up updates the pledge's `lastContactAt` and `nextFollowUpAt`, a
 ### `payments`
 `pledgeId, sevakId, amount, month, method: "ecs" | "upi_autopay" | "upi" | "cash" | "bank" | "cheque" | "other", reference, receivedAt, recordedBy, receiptNo (unique, e.g. NS-2026-000123), createdAt`
 
-Receipt numbers come from an atomic counter in `counters`.
+Receipt numbers come from an atomic counter in `counters`. Past giving is entered with `POST /api/pledges/:id/payments/bulk { fromMonth, toMonth, amount, method, reference }`: one payment per gift in the range (stepping by the pledge's frequency, up to 120), each with its own receipt, received at noon IST on the 1st. Months that already have a payment are skipped, so it's safe to repeat. Cancelled pledges accept payments too, for entering what they gave before stopping.
 
 ### `notifications`
 `userId, type, title, body, link, readAt?, createdAt`
 
-Types: `pledge.new` (all admins), `pledge.assigned` (assignee), `followup.due` (assignee, daily cron).
+Types: `pledge.new` (owners and admins), `pledge.assigned` (assignee), `followup.due` (assignee, daily cron).
 
 ### `auditLogs`
 `actorId, action, entity, entityId, data, createdAt`
+
+Owners read it on the portal's Activity page (`GET /api/audit?action=<prefix>&page=`).
 
 ### `deletedItems` (the "Recently deleted" bin)
 `kind: "pledge" | "followup" | "payment", itemId, pledgeId, sevakId, reason, pledge?, followups[], payments[], deletedBy, deletedAt`
@@ -137,11 +150,11 @@ Deleting moves the whole document here (a pledge brings its follow-ups and payme
 
 | Delete | Who |
 | --- | --- |
-| Pledge | Admin |
-| Payment | Admin, or whoever recorded it |
-| Follow-up | Admin, or whoever logged it |
+| Pledge | Owner, admin |
+| Payment | Owner, admin, accounts, or whoever recorded it |
+| Follow-up | Owner, admin, or whoever logged it |
 
-Restoring and "delete for good" are admin only (`/portal/#/deleted`). A follow-up or payment whose pledge is in the bin can only be restored after the pledge.
+Owners and admins can restore (`/portal/#/deleted`); only owners can delete for good. A follow-up or payment whose pledge is in the bin can only be restored after the pledge.
 
 ### Support collections
 - `counters`: `{ _id: "receipt-2026", seq }`
@@ -172,25 +185,34 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 | POST | `/api/auth/password` | Change own password; logs out other sessions. |
 
 ### Staff (login required)
-| Method | Path | Role |
+"Working" a pledge means `pledges.manage` (owner, admin) or being its assignee; payments need `payments.manage` (owner, admin, accounts) or being the assignee.
+
+| Method | Path | Who |
 | --- | --- | --- |
-| GET | `/api/pledges?status=&assignedTo=&due=&mode=&mandate=&q=&page=&limit=` | admin: all; followup: own. `mode` is a payment mode or `none` |
-| GET | `/api/pledges/:id` | pledge with sevak, follow-ups and payments |
-| PATCH | `/api/pledges/:id` | amount, seva, message, next follow-up; audited |
-| DELETE | `/api/pledges/:id` | admin; moves it to the bin |
-| PATCH | `/api/pledges/:id/sevak` | name, phone, email (shared by the sevak's pledges); a phone already in use is a 409 |
-| PATCH | `/api/pledges/:id/status` | transition rules apply; `correction: true` (admin) skips them |
-| POST | `/api/pledges/:id/status/undo` | undo the last status change |
-| DELETE | `/api/pledges/:id/followups/:followupId`, `/api/pledges/:id/payments/:paymentId` | to the bin |
-| GET | `/api/deleted?kind=&page=`, POST `/api/deleted/:id/restore`, DELETE `/api/deleted/:id` | admin |
-| PATCH | `/api/pledges/:id/assign` | admin |
-| PUT/DELETE | `/api/pledges/:id/payment-setup` | how the sevak pays; audited |
-| GET/POST | `/api/pledges/:id/followups` | |
-| GET/POST | `/api/pledges/:id/payments` | |
+| GET | `/api/pledges?status=&assignedTo=&due=&mode=&mandate=&origin=&frequency=&q=&page=&limit=` | owner, admin, accounts: all; others: own. `mode` is a payment mode or `none` |
+| POST | `/api/pledges` | owner, admin; add by hand (earlier givers, Google Form, in person) |
+| GET | `/api/pledges/:id` | pledge with sevak, follow-ups, payments and `access` |
+| PATCH | `/api/pledges/:id` | working it: amount, frequency, seva, message, giving since, next follow-up (origin: owner, admin); audited |
+| DELETE | `/api/pledges/:id` | owner, admin; moves it to the bin |
+| PATCH | `/api/pledges/:id/sevak` | working it: name, phone, email (shared by the sevak's pledges); a phone already in use is a 409 |
+| PATCH | `/api/pledges/:id/status` | working it; transition rules apply; `pausedUntil` with `paused`; `correction: true` (owner, admin) skips them |
+| POST | `/api/pledges/:id/status/undo` | working it; undo the last status change |
+| DELETE | `/api/pledges/:id/followups/:followupId`, `/api/pledges/:id/payments/:paymentId` | to the bin; see "Recently deleted" |
+| GET | `/api/deleted?kind=&page=`, POST `/api/deleted/:id/restore` | owner, admin |
+| DELETE | `/api/deleted/:id` | owner |
+| PATCH | `/api/pledges/:id/assign`, `/api/pledges/:id/counter` | owner, admin |
+| PUT/DELETE | `/api/pledges/:id/payment-setup` | payments; how the sevak pays; audited |
+| GET/POST | `/api/pledges/:id/followups` | working it |
+| GET/POST | `/api/pledges/:id/payments`, POST `/api/pledges/:id/payments/bulk` | payments |
+| GET | `/api/sevaks?q=`, POST `/api/sevaks/:id/merge { from }` | owner, admin |
 | GET | `/api/notifications` | own |
 | POST | `/api/notifications/:id/read`, `/api/notifications/read-all` | own |
-| GET/POST | `/api/users`, PATCH `/api/users/:id` | admin |
-| GET | `/api/reports/summary`, `/api/reports/collections?from=&to=`, `/api/reports/activity?from=&to=`, `/api/reports/payment-modes?from=&to=`, `/api/reports/pledges.csv` | admin |
+| GET | `/api/users` | owner, admin, accounts |
+| POST | `/api/users`, PATCH `/api/users/:id` | owner: any role; admin: accounts, viewer and follow-up only. Nobody changes their own role |
+| GET | `/api/reports/summary`, `/api/reports/collections?from=&to=`, `/api/reports/activity?from=&to=`, `/api/reports/payment-modes?from=&to=` | everyone but follow-up devotees |
+| GET | `/api/reports/pledges.csv` | owner, admin, accounts |
+| GET | `/api/counter`… | owner, admin |
+| GET | `/api/audit?action=&page=` | owner |
 
 ### Cron
 | GET | `/api/cron/daily` | Requires `Authorization: Bearer $CRON_SECRET`. Creates `followup.due` notifications for pledges whose `nextFollowUpAt` is today or earlier. |
@@ -202,7 +224,7 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 - **CORS**: only origins in `ALLOWED_ORIGINS`, with credentials.
 - **Rate limits** stored in MongoDB so they hold across serverless instances.
 - **Security headers** (`middleware/securityHeaders.ts`): Helmet's defaults, with `default-src 'none'` and no framing since the API never serves pages. JSON body limit 20 KB.
-- **PII**: sevak phone numbers are only visible to logged-in staff. Follow-up devotees only see their assigned pledges.
+- **PII**: sevak phone numbers are only visible to logged-in staff. Follow-up devotees only see their assigned pledges; viewers see none.
 - **Secrets** only in Vercel environment variables. Rotate the MongoDB password that was once committed to git history.
 
 ## 8. Scheduled work
@@ -215,7 +237,7 @@ Vercel Hobby allows one cron run per day: `30 3 * * *` UTC (9:00 IST) calls `/ap
 2. Run `npm run db:indexes` and `npm run migrate` against production. The migration only reads `submissions` and is idempotent (`legacyId`), so it can be re-run.
 3. Check `/api/stats` on the preview matches production.
 4. Merge to `main`. Re-run `npm run migrate` once to pick up any submission that arrived in between.
-5. `npm run create-admin` to create the first admin.
+5. `npm run create-admin` to create the first owner (`--role` for anything else). `npm run set-role -- --email … --role owner` promotes an existing account.
 
 ## 10. The public counter
 

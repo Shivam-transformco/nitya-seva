@@ -1,12 +1,23 @@
 import { useState } from "react";
 import { api, useApi } from "../api";
-import { ROLE_LABELS, formatDateTime, temporaryPassword } from "../format";
+import { ROLE_LABELS, formatDateTime, manageableRoles, temporaryPassword } from "../format";
 import { ErrorNote, Field, Loading, PageHead } from "../ui";
 
 const ROLE_HINTS = {
+  owner: "Everything an admin can do, plus managing admins, the activity log and permanent deletes.",
+  admin: "Sees and works every pledge, assigns sevaks, runs the counter and adds staff below admin.",
+  accounts: "Sees every pledge and records payments. Can't change statuses or assign sevaks.",
+  viewer: "Sees the dashboard and reports only, with no sevak names or phone numbers.",
   followup: "Sees only the sevaks assigned to them.",
-  admin: "Sees everything, assigns sevaks and manages staff.",
 };
+
+function RoleOptions({ roles }) {
+  return roles.map((r) => (
+    <option key={r} value={r}>
+      {ROLE_LABELS[r]}
+    </option>
+  ));
+}
 
 function CredentialsNote({ creds, onClose }) {
   return (
@@ -31,7 +42,7 @@ function CredentialsNote({ creds, onClose }) {
   );
 }
 
-function AddStaff({ onAdded }) {
+function AddStaff({ roles, onAdded }) {
   const blank = () => ({ name: "", email: "", role: "followup", temporaryPassword: temporaryPassword() });
   const [form, setForm] = useState(blank);
   const [error, setError] = useState(null);
@@ -65,8 +76,7 @@ function AddStaff({ onAdded }) {
         </Field>
         <Field label="Role" hint={ROLE_HINTS[form.role]}>
           <select value={form.role} onChange={set("role")}>
-            <option value="followup">{ROLE_LABELS.followup}</option>
-            <option value="admin">{ROLE_LABELS.admin}</option>
+            <RoleOptions roles={roles} />
           </select>
         </Field>
         <Field label="Temporary password" hint="They'll change it on first sign-in.">
@@ -81,7 +91,8 @@ function AddStaff({ onAdded }) {
   );
 }
 
-function StaffRow({ member, isSelf, onChanged, onCredentials }) {
+function StaffRow({ member, isSelf, roles, onChanged, onCredentials }) {
+  const manageable = roles.includes(member.role);
   const [error, setError] = useState(null);
 
   async function patch(body) {
@@ -116,20 +127,25 @@ function StaffRow({ member, isSelf, onChanged, onCredentials }) {
         <ErrorNote error={error} />
       </td>
       <td>
-        <select aria-label={`Role for ${member.name}`} value={member.role} disabled={isSelf} onChange={(e) => patch({ role: e.target.value })}>
-          <option value="followup">{ROLE_LABELS.followup}</option>
-          <option value="admin">{ROLE_LABELS.admin}</option>
-        </select>
+        {isSelf || !manageable ? (
+          <span title={isSelf ? "You can't change your own role." : "Only an owner can change this."}>{ROLE_LABELS[member.role]}</span>
+        ) : (
+          <select aria-label={`Role for ${member.name}`} value={member.role} onChange={(e) => patch({ role: e.target.value })}>
+            <RoleOptions roles={roles} />
+          </select>
+        )}
       </td>
       <td>
         {member.active ? (member.mustChangePassword ? "Invited" : "Active") : "Deactivated"}
         <div className="p-muted">{member.lastLoginAt ? `Last in ${formatDateTime(member.lastLoginAt)}` : "Never signed in"}</div>
       </td>
       <td className="actions">
-        <button className="pbtn pbtn-ghost pbtn-small" onClick={resetPassword}>
-          Reset password
-        </button>
-        {!isSelf && (
+        {(isSelf || manageable) && (
+          <button className="pbtn pbtn-ghost pbtn-small" onClick={resetPassword}>
+            Reset password
+          </button>
+        )}
+        {!isSelf && manageable && (
           <button className="pbtn pbtn-ghost pbtn-small" onClick={toggleActive}>
             {member.active ? "Deactivate" : "Reactivate"}
           </button>
@@ -142,6 +158,7 @@ function StaffRow({ member, isSelf, onChanged, onCredentials }) {
 export default function Staff({ user }) {
   const { data, error, loading, reload } = useApi("/users");
   const [creds, setCreds] = useState(null);
+  const roles = manageableRoles(user.role);
 
   return (
     <>
@@ -164,7 +181,7 @@ export default function Staff({ user }) {
               </thead>
               <tbody>
                 {data.map((m) => (
-                  <StaffRow key={m._id} member={m} isSelf={m._id === user._id} onChanged={reload} onCredentials={setCreds} />
+                  <StaffRow key={m._id} member={m} isSelf={m._id === user._id} roles={roles} onChanged={reload} onCredentials={setCreds} />
                 ))}
               </tbody>
             </table>
@@ -172,6 +189,7 @@ export default function Staff({ user }) {
         )}
       </section>
       <AddStaff
+        roles={roles}
         onAdded={(c) => {
           setCreds(c);
           reload();

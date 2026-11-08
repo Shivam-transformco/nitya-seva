@@ -1,4 +1,34 @@
-import type { FollowupOutcome, PledgeDoc, PledgeStatus } from "../../domain/types.js";
+import type { Filter } from "mongodb";
+import type { Frequency, FollowupOutcome, PledgeDoc, PledgeOrigin, PledgeStatus } from "../../domain/types.js";
+
+const MONTHS_PER_GIFT: Record<Frequency, number | null> = {
+  Monthly: 1,
+  Quarterly: 3,
+  "Half-yearly": 6,
+  Yearly: 12,
+  "One-time": null,
+};
+
+/** Months between gifts, or null for a one-time gift. */
+export const monthsBetweenGifts = (frequency: Frequency) => MONTHS_PER_GIFT[frequency];
+
+/** What a pledge adds to the monthly total. A one-time gift isn't a monthly commitment, so it adds nothing. */
+export function monthlyEquivalent(amount: number, frequency: Frequency): number {
+  const months = MONTHS_PER_GIFT[frequency];
+  return months ? Math.round(amount / months) : 0;
+}
+
+/** For aggregations: the stored monthly figure, or the amount on pledges from before it was stored (all monthly). */
+export const MONTHLY_AMOUNT = { $ifNull: ["$monthly", "$amount"] };
+
+/** Pledges saved before `origin` existed have none; this reads them as the website or the old database. */
+export const originOf = (p: Pick<PledgeDoc, "origin" | "legacyId">): PledgeOrigin => p.origin ?? (p.legacyId ? "legacy" : "website");
+
+export function originFilter(origin: PledgeOrigin): Filter<PledgeDoc> {
+  if (origin === "website") return { $or: [{ origin: "website" }, { origin: { $exists: false }, legacyId: { $exists: false } }] };
+  if (origin === "legacy") return { $or: [{ origin: "legacy" }, { origin: { $exists: false }, legacyId: { $exists: true } }] };
+  return { origin };
+}
 
 const TRANSITIONS: Record<PledgeStatus, PledgeStatus[]> = {
   new: ["contacted", "confirmed", "lost"],

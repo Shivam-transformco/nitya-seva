@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ObjectId } from "mongodb";
+import { can, type Permission } from "../domain/permissions.js";
 import type { Role } from "../domain/types.js";
 import { forbidden, unauthenticated } from "../lib/errors.js";
 import { SESSION_COOKIE, verifySession } from "../lib/tokens.js";
@@ -40,13 +41,10 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   next();
 }
 
-export const requireRole =
-  (...roles: Role[]) =>
-  (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.actor) throw unauthenticated();
-    if (!roles.includes(req.actor.role)) throw forbidden();
-    next();
-  };
+export const requirePermission = (permission: Permission) => (req: Request, _res: Response, next: NextFunction) => {
+  if (!can(actorOf(req).role, permission)) throw forbidden();
+  next();
+};
 
 /** For routes behind requireAuth. */
 export function actorOf(req: Request): Actor {

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, onNotificationsChanged, onSessionEnded } from "./api";
-import { ROLE_LABELS } from "./format";
+import { ROLE_LABELS, can } from "./format";
 import { Link, navigate, useRoute } from "./router";
 import { Brand, Loading } from "./ui";
 import Account from "./pages/Account";
+import Activity from "./pages/Activity";
+import AddPledge from "./pages/AddPledge";
 import ChangePassword from "./pages/ChangePassword";
 import Counter from "./pages/Counter";
 import Dashboard from "./pages/Dashboard";
@@ -61,7 +63,8 @@ function useUnreadCount() {
 function Shell({ user, onUser }) {
   const { path, params } = useRoute();
   const unread = useUnreadCount();
-  const isAdmin = user.role === "admin";
+  const seesAll = can(user, "pledges.viewAll");
+  const hasDashboard = can(user, "reports.view");
 
   async function logout() {
     await api("/auth/logout", { method: "POST" }).catch(() => {});
@@ -70,11 +73,16 @@ function Shell({ user, onUser }) {
   }
 
   const nav = [
-    isAdmin && { to: "/", label: "Dashboard", match: (p) => p === "/" },
-    { to: "/pledges", label: isAdmin ? "Pledges" : "My sevaks", match: (p) => p.startsWith("/pledges") || (!isAdmin && p === "/") },
-    isAdmin && { to: "/staff", label: "Staff", match: (p) => p === "/staff" },
-    isAdmin && { to: "/counter", label: "Counter", match: (p) => p === "/counter" },
-    isAdmin && { to: "/reports", label: "Reports", match: (p) => p === "/reports" },
+    hasDashboard && { to: "/", label: "Dashboard", match: (p) => p === "/" },
+    user.role !== "viewer" && {
+      to: "/pledges",
+      label: seesAll ? "Pledges" : "My sevaks",
+      match: (p) => p.startsWith("/pledges") || (!hasDashboard && p === "/"),
+    },
+    can(user, "staff.manage") && { to: "/staff", label: "Staff", match: (p) => p === "/staff" },
+    can(user, "counter.manage") && { to: "/counter", label: "Counter", match: (p) => p === "/counter" },
+    hasDashboard && { to: "/reports", label: "Reports", match: (p) => p === "/reports" },
+    can(user, "audit.view") && { to: "/activity", label: "Activity", match: (p) => p === "/activity" },
   ].filter(Boolean);
 
   return (
@@ -125,18 +133,20 @@ function Shell({ user, onUser }) {
 }
 
 function Page({ path, params, user, onUser }) {
-  const isAdmin = user.role === "admin";
   const pledgeId = path.match(/^\/pledges\/([a-f0-9]{24})$/i)?.[1];
+  const worksPledges = user.role !== "viewer";
 
-  if (pledgeId) return <PledgeDetail id={pledgeId} user={user} />;
-  if (path === "/" && isAdmin) return <Dashboard />;
-  if (path === "/" || path === "/pledges") return <Pledges params={params} user={user} />;
+  if (pledgeId && worksPledges) return <PledgeDetail id={pledgeId} user={user} />;
+  if (path === "/" && can(user, "reports.view")) return <Dashboard user={user} />;
+  if ((path === "/" || path === "/pledges") && worksPledges) return <Pledges params={params} user={user} />;
+  if (path === "/pledges/new" && can(user, "pledges.manage")) return <AddPledge user={user} />;
   if (path === "/notifications") return <Notifications />;
   if (path === "/account") return <Account user={user} onUser={onUser} />;
-  if (isAdmin && path === "/staff") return <Staff user={user} />;
-  if (isAdmin && path === "/reports") return <Reports />;
-  if (isAdmin && path === "/counter") return <Counter />;
-  if (isAdmin && path === "/deleted") return <Deleted params={params} />;
+  if (path === "/staff" && can(user, "staff.manage")) return <Staff user={user} />;
+  if (path === "/reports" && can(user, "reports.view")) return <Reports user={user} />;
+  if (path === "/counter" && can(user, "counter.manage")) return <Counter />;
+  if (path === "/deleted" && can(user, "bin.manage")) return <Deleted params={params} user={user} />;
+  if (path === "/activity" && can(user, "audit.view")) return <Activity params={params} />;
   return (
     <div className="p-card">
       <h1>Page not found</h1>

@@ -48,7 +48,37 @@ export const defaultMethod = (setup) => (setup && AUTO_DEBIT_MODES.includes(setu
 
 export const FLAG_LABELS = { spam: "Spam", test: "Test entry", duplicate: "Duplicate", other: "Other" };
 
-export const ROLE_LABELS = { admin: "Admin", followup: "Follow-up devotee" };
+export const ROLE_LABELS = {
+  owner: "Owner",
+  admin: "Admin",
+  accounts: "Accounts",
+  viewer: "Viewer",
+  followup: "Follow-up devotee",
+};
+export const ROLES = Object.keys(ROLE_LABELS);
+
+/** Mirrors the server's role table, so the portal only offers what someone may change. */
+const MANAGES = { owner: ROLES, admin: ["accounts", "viewer", "followup"] };
+export const manageableRoles = (role) => MANAGES[role] ?? [];
+
+/** The server sends each signed-in user's permissions; it still checks every request itself. */
+export const can = (user, permission) => Boolean(user?.permissions?.includes(permission));
+
+export const ORIGIN_LABELS = {
+  website: "Website",
+  legacy: "Old website form",
+  pre_website: "Before the website",
+  google_form: "Google Form",
+  staff: "Added by staff",
+};
+/** Origins staff can choose when adding a pledge by hand. */
+export const MANUAL_ORIGINS = ["pre_website", "google_form", "staff"];
+
+export const FREQUENCIES = ["Monthly", "Quarterly", "Half-yearly", "Yearly", "One-time"];
+const PER = { Monthly: "/mo", Quarterly: "/qtr", "Half-yearly": "/6 mo", Yearly: "/yr", "One-time": " once" };
+export const perLabel = (frequency) => PER[frequency] ?? "/mo";
+const MONTHS_PER_GIFT = { Monthly: 1, Quarterly: 3, "Half-yearly": 6, Yearly: 12 };
+export const monthsBetweenGifts = (frequency) => MONTHS_PER_GIFT[frequency] ?? null;
 
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 

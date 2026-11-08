@@ -22,7 +22,7 @@ await ensureIndexes();
 await users.create(null, {
   name: process.env.E2E_ADMIN_NAME ?? "Test Admin",
   email: process.env.E2E_ADMIN_EMAIL ?? "admin@example.org",
-  role: "admin",
+  role: "owner",
   temporaryPassword: process.env.E2E_ADMIN_PASSWORD ?? "temporary-pass-1",
 });
 

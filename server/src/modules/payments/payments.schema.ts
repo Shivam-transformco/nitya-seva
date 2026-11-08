@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { PAYMENT_METHODS } from "../../domain/types.js";
-import { MONTH_RE } from "../../lib/dates.js";
+import { istMonth, MONTH_RE } from "../../lib/dates.js";
+
+const month = z.string().regex(MONTH_RE, "must look like 2026-11");
+
+export const bulkPaymentBody = z
+  .object({
+    fromMonth: month,
+    toMonth: month,
+    amount: z.number().int().min(1).max(10_00_000),
+    method: z.enum(PAYMENT_METHODS),
+    reference: z.string().trim().max(200).default(""),
+  })
+  .refine((b) => b.toMonth <= istMonth(), { message: "can't be in the future", path: ["toMonth"] });
 
 export const createPaymentBody = z.object({
   amount: z.number().int().min(1).max(10_00_000),

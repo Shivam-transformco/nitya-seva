@@ -16,6 +16,7 @@ export async function ensureIndexes(): Promise<void> {
   await Promise.all([
     users.createIndex({ email: 1 }, { unique: true }),
     sevaks.createIndex({ phone: 1 }, { unique: true }),
+    sevaks.createIndex({ otherPhones: 1 }),
     pledges.createIndex({ status: 1, createdAt: -1 }),
     pledges.createIndex({ assignedTo: 1, status: 1 }),
     pledges.createIndex({ nextFollowUpAt: 1 }),
@@ -28,6 +29,7 @@ export async function ensureIndexes(): Promise<void> {
     payments.createIndex({ receiptNo: 1 }, { unique: true }),
     notifications.createIndex({ userId: 1, readAt: 1, createdAt: -1 }),
     auditLogs.createIndex({ entity: 1, entityId: 1, createdAt: -1 }),
+    auditLogs.createIndex({ createdAt: -1 }),
     rateLimits.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     deletedItems.createIndex({ deletedAt: -1 }),
     deletedItems.createIndex({ pledgeId: 1 }),

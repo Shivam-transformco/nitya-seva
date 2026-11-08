@@ -1,4 +1,4 @@
-import { MANDATE_LABELS, MODE_SHORT, STATUS_LABELS } from "./format";
+import { MANDATE_LABELS, MODE_SHORT, ORIGIN_LABELS, STATUS_LABELS } from "./format";
 import { Link } from "./router";
 
 export function Brand() {
@@ -10,6 +10,17 @@ export function Brand() {
       </span>
     </Link>
   );
+}
+
+/** A link for people who can open the page it points to, plain content for everyone else. */
+export function MaybeLink({ when, to, className, children }) {
+  if (when) return <Link to={to} className={className}>{children}</Link>;
+  return className ? <div className={className}>{children}</div> : children;
+}
+
+export function OriginBadge({ origin }) {
+  if (!origin || origin === "website" || origin === "legacy") return null;
+  return <span className="badge badge-origin">{ORIGIN_LABELS[origin]}</span>;
 }
 
 export function StatusBadge({ status }) {
