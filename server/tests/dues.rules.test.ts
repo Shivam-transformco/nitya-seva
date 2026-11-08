@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ObjectId } from "mongodb";
 import { addMonths, daysInMonth, financialYear, financialYearOf, monthsBetween } from "../src/lib/dates.js";
 import { scheduleAfter, scheduleUpdate } from "../src/modules/pledges/pledges.rules.js";
-import { amountFor, dueDayOf, ledger, missedInRow, owedIn, totalsFor, type LedgerPledge } from "../src/modules/dues/dues.rules.js";
+import { amountFor, dueDayOf, ledger, missedInRow, owedIn, scheduleFromHistory, totalsFor, unpaidMonths, type LedgerPledge } from "../src/modules/dues/dues.rules.js";
 
 const pledge = (p: Partial<LedgerPledge> = {}): LedgerPledge => ({
   amount: 1000,
@@ -10,6 +10,7 @@ const pledge = (p: Partial<LedgerPledge> = {}): LedgerPledge => ({
   status: "confirmed",
   dueFrom: "2026-01",
   createdAt: new Date("2026-01-05"),
+  updatedAt: new Date("2026-01-05"),
   ...p,
 });
 const today = { month: "2026-04", day: 10 };
@@ -108,6 +109,23 @@ describe("ledger", () => {
     expect(rows[0]?.month).toBe("2026-02");
   });
 
+  it("guesses the schedule of older pledges from their last status change", () => {
+    const legacy = (status: LedgerPledge["status"], at: string) =>
+      pledge({ dueFrom: undefined, status, createdAt: new Date("2025-11-20"), lastStatusChange: { from: "contacted", to: status, at: new Date(at), by: new ObjectId() } });
+    // Confirmed in February after being added in November: nothing due before February.
+    expect(states(ledger(legacy("confirmed", "2026-02-03"), [], new Map(), all, today))[0]).toBe("2026-02:missed");
+    // Paused in March: March onwards isn't missed.
+    const paused = ledger({ ...legacy("paused", "2026-03-15"), dueFrom: undefined }, [{ month: "2025-12", amount: 1000 }], new Map(), all, today);
+    expect(states(paused).slice(-3)).toEqual(["2026-02:missed", "2026-03:paused", "2026-04:paused"]);
+    // Cancelled in March: nothing due from March.
+    expect(states(ledger(legacy("cancelled", "2026-03-15"), [], new Map(), all, today)).at(-1)).toBe("2026-02:missed");
+  });
+
+  it("doesn't move the start when the earliest payment is deleted, once a schedule is recorded", () => {
+    const p = pledge({ dueFrom: "2026-01" });
+    expect(states(ledger(p, [], new Map(), all, today))[0]).toBe("2026-01:missed");
+  });
+
   it("uses the amount pledged at the time", () => {
     const p = pledge({ amount: 2000, amountHistory: [{ amount: 1000, frequency: "Monthly", until: new Date("2026-03-10T06:00:00Z"), by: new ObjectId() }] });
     expect(amountFor(p, "2026-02")).toBe(1000);
@@ -119,6 +137,35 @@ describe("ledger", () => {
   });
 });
 
+describe("scheduleFromHistory", () => {
+  const legacy = pledge({ dueFrom: undefined, status: "confirmed" });
+  const at = (d: string) => new Date(`${d}T06:00:00Z`);
+
+  it("replays confirmations, pauses and cancellations", () => {
+    const s = scheduleFromHistory(
+      legacy,
+      [
+        { to: "new", at: at("2025-10-02") },
+        { to: "confirmed", at: at("2025-11-10") },
+        { to: "paused", at: at("2026-01-05") },
+        { to: "confirmed", at: at("2026-03-01") },
+      ],
+      "2025-12",
+    );
+    expect(s).toEqual({ dueFrom: "2025-11", pauses: [{ from: "2026-01", to: "2026-02" }], fromHistory: true });
+  });
+
+  it("starts at an earlier payment", () => {
+    expect(scheduleFromHistory(legacy, [{ to: "confirmed", at: at("2025-11-10") }], "2025-09").dueFrom).toBe("2025-09");
+  });
+
+  it("falls back to a guess when the history doesn't reach the current status", () => {
+    const s = scheduleFromHistory({ ...legacy, status: "paused", updatedAt: at("2026-02-01") }, [{ to: "confirmed", at: at("2025-11-10") }]);
+    expect(s.fromHistory).toBe(false);
+    expect(s.pauses).toEqual([{ from: "2026-02" }]);
+  });
+});
+
 describe("totals", () => {
   it("counts runs, what's owed and month totals", () => {
     const rows = ledger(pledge(), [{ month: "2026-01", amount: 1000 }, { month: "2026-03", amount: 400 }], new Map(), all, today);
@@ -127,6 +174,12 @@ describe("totals", () => {
     const t = totalsFor("2026-03", [rows[2]!]);
     expect(t).toMatchObject({ committed: 1000, collected: 400, outstanding: 600, excused: 0 });
     expect(t.sevaks.partial).toBe(1);
+  });
+
+  it("still lists a missed month after a later one was paid", () => {
+    const rows = ledger(pledge(), [{ month: "2026-01", amount: 1000 }, { month: "2026-03", amount: 1000 }], new Map(), all, today);
+    expect(missedInRow(rows)).toBe(0);
+    expect(unpaidMonths(rows)).toEqual(["2026-02"]);
   });
 
   it("doesn't count this month as owing before its due day", () => {

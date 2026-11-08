@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, useApi } from "./api";
-import { DUE_REASON_LABELS, DUE_STATE_LABELS, OWING_STATES, formatDate, formatINR, monthLabel, plural } from "./format";
+import { DUE_REASON_LABELS, DUE_STATE_LABELS, OWING_STATES, currentMonth, formatDate, formatINR, monthLabel, plural } from "./format";
 import { Link } from "./router";
 import { ErrorNote, Field, Loading, MaybeLink } from "./ui";
 
@@ -212,14 +212,21 @@ export function DuesCard({ pledge, canNote, onChanged }) {
   const [showAll, setShowAll] = useState(false);
   if (!dues) return null;
   const months = showAll ? dues.months : dues.months.slice(0, 6);
+  const current = dues.months[0];
+  const toCome =
+    current?.month === currentMonth() && current.state === "due"
+      ? `${monthLabel(current.month)}'s ${formatINR(current.expected - current.paid)} is still to come, due by day ${dues.dueDay}.`
+      : "";
 
   return (
     <section className="p-card">
       <h2>Payments by month</h2>
       <p className="p-muted">
         {dues.missedInRow > 0
-          ? `${dues.missedInRow} ${dues.missedInRow === 1 ? "gift" : "gifts in a row"} not paid · ${formatINR(dues.owed)} owed in the last 12 months.`
-          : "Up to date."}
+          ? `${dues.missedInRow} ${dues.missedInRow === 1 ? "gift" : "gifts in a row"} not paid · ${formatINR(dues.owed)} owed in the last 12 months. ${toCome}`
+          : dues.unpaid.length
+            ? `${dues.unpaid.map(monthLabel).join(", ")} not paid · ${formatINR(dues.owed)} owed in the last 12 months. ${toCome}`
+            : toCome || "Up to date."}
       </p>
       <ul className="dues-list">
         {months.map((m) => (

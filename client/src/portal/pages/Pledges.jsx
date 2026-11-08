@@ -8,11 +8,14 @@ import {
   STATUSES,
   STATUS_LABELS,
   can,
+  currentMonth,
   dueLabel,
   formatDate,
   formatINR,
+  monthLabel,
   perLabel,
   plural,
+  unpaidLabel,
 } from "../format";
 import { Link, navigate } from "../router";
 import { DueBadge, Empty, ErrorNote, Loading, ModeBadge, OriginBadge, PageHead, Pager, StatusBadge } from "../ui";
@@ -58,9 +61,12 @@ export function PledgeRows({ items, showAssignee }) {
               {p.flag && <span className="badge badge-flag">{FLAG_LABELS[p.flag.reason]}</span>}
               {!p.flag && p.hiddenFromCounter && <span className="badge badge-hidden">Off counter</span>}
               {!p.flag && <DueBadge due={dueLabel(p.nextFollowUpAt)} />}
-              {p.owing && (
-                <span className="badge badge-due-missed">
-                  {p.owing.missedInRow === 1 ? "Payment overdue" : `${p.owing.missedInRow} payments missed`}
+              {p.owing?.unpaid.length > 0 && (
+                <span className="badge badge-due-missed">{unpaidLabel(p.owing.missedInRow, p.owing.unpaid)}</span>
+              )}
+              {p.owing?.dueNow && (
+                <span className="badge badge-due-due">
+                  {formatINR(p.owing.dueNow.amount)} due by {p.owing.dueNow.day} {monthLabel(currentMonth()).split(" ")[0]}
                 </span>
               )}
             </span>

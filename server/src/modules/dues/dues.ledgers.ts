@@ -5,7 +5,7 @@ import { addMonths, istToday } from "../../lib/dates.js";
 import { notFlagged } from "../counter/counter.rules.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as notesRepo from "./dues.repository.js";
-import { DUE_STATUSES, dueDayOf, firstDueMonth, ledger, missedInRow, owedIn, type LedgerMonth } from "./dues.rules.js";
+import { DUE_STATUSES, dueDayOf, ledger, missedInRow, owedIn, scheduleFor, unpaidMonths, type LedgerMonth } from "./dues.rules.js";
 
 /** How far back the missed-payments list and the pledge list badges look. */
 export const LOOKBACK_MONTHS = 12;
@@ -49,7 +49,7 @@ export async function ledgersFor(pledges: PledgeDoc[], range: { from: string; to
     return {
       pledge,
       months: ledger(pledge, own, noteMap, range, today),
-      firstDue: firstDueMonth(pledge, paidMonths[0]),
+      firstDue: scheduleFor(pledge, paidMonths[0]).dueFrom,
       lastPaidMonth: paidMonths.at(-1) ?? null,
     };
   });
@@ -81,25 +81,42 @@ export async function forPledge(pledge: PledgeDoc) {
     dueFrom: l.firstDue,
     dueDay: dueDayOf(pledge, today.month),
     missedInRow: missedInRow(l.months),
+    unpaid: unpaidMonths(l.months.slice(-LOOKBACK_MONTHS)),
     owed: owedIn(l.months.slice(-LOOKBACK_MONTHS)),
     months: l.months.map((m) => withNoteName(m, nameOf)).reverse(),
   };
 }
 
-/** For the pledge list: which of these pledges owe money (overdue now, or missed recently). */
-export async function owingFor(pledges: PledgeDoc[]): Promise<Map<string, { missedInRow: number; owed: number }>> {
+export interface Owing {
+  missedInRow: number;
+  /** Unpaid months in the last year, oldest first. */
+  unpaid: string[];
+  owed: number;
+  /** This month's gift when it hasn't come yet and isn't late: what's left of it, and the day it's due. */
+  dueNow: { amount: number; day: number } | null;
+}
+
+/** For the pledge list: which of these pledges owe money (late, missed recently, or this month's still to come). */
+export async function owingFor(pledges: PledgeDoc[]): Promise<Map<string, Owing>> {
   const today = istToday();
   const due = pledges.filter((p) => (DUE_STATUSES as readonly string[]).includes(p.status) && !p.flag);
-  const out = new Map<string, { missedInRow: number; owed: number }>();
+  const out = new Map<string, Owing>();
   for (const l of await ledgersFor(due, lookback(today), today)) {
-    const inRow = missedInRow(l.months);
-    if (inRow > 0) out.set(l.pledge._id.toHexString(), { missedInRow: inRow, owed: owedIn(l.months) });
+    const unpaid = unpaidMonths(l.months);
+    const current = l.months.at(-1);
+    const dueNow =
+      current?.month === today.month && current.state === "due"
+        ? { amount: current.expected - current.paid, day: dueDayOf(l.pledge, today.month) }
+        : null;
+    if (unpaid.length || dueNow) {
+      out.set(l.pledge._id.toHexString(), { missedInRow: missedInRow(l.months), unpaid, owed: owedIn(l.months), dueNow });
+    }
   }
   return out;
 }
 
-/** Ids of pledges matching `filter` that owe money, for the "Payment overdue" list. */
+/** Ids of pledges matching `filter` with an unpaid gift in the last year, for the "Payment overdue" list. */
 export async function owingIds(filter: Filter<PledgeDoc>): Promise<ObjectId[]> {
   const ledgers = await loadLedgers(filter, lookback());
-  return ledgers.filter((l) => missedInRow(l.months) > 0).map((l) => l.pledge._id);
+  return ledgers.filter((l) => unpaidMonths(l.months).length > 0).map((l) => l.pledge._id);
 }

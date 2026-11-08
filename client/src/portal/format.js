@@ -154,6 +154,13 @@ export function addMonthsTo(month, n) {
 export const monthLabel = (m) =>
   new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" });
 
+/** "Payment overdue", "3 payments missed" or "Sep 2026 not paid" for a pledge's unpaid months (oldest first). */
+export function unpaidLabel(missedInRow, unpaid) {
+  if (!unpaid?.length) return "";
+  if (missedInRow === unpaid.length) return missedInRow === 1 ? "Payment overdue" : `${missedInRow} payments missed`;
+  return unpaid.length === 1 ? `${monthLabel(unpaid[0])} not paid` : `${unpaid.length} payments missed`;
+}
+
 /** Value for <input type="date"> (today, in the browser's timezone). */
 export const todayInput = () => new Date().toLocaleDateString("en-CA");
 

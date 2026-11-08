@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApi } from "../api";
 import { DueStateBadge, NoteText, ReasonForm } from "../dues";
-import { MODE_SHORT, formatINR, monthLabel, perLabel, plural, telLink, waLink } from "../format";
+import { MODE_SHORT, formatINR, monthLabel, perLabel, plural, telLink, unpaidLabel, waLink } from "../format";
 import { Link } from "../router";
 import { Empty, ErrorNote, Loading, PageHead } from "../ui";
 
@@ -50,7 +50,13 @@ export default function Overdue({ user }) {
                       </span>
                     </span>
                     <span className="row-meta">
-                      <strong>{r.missedInRow === 1 ? "1 gift" : `${r.missedInRow} in a row`}</strong>
+                      <strong>
+                        {r.missedInRow === r.months.length
+                          ? r.missedInRow === 1
+                            ? "1 gift"
+                            : `${r.missedInRow} in a row`
+                          : unpaidLabel(r.missedInRow, r.months.map((m) => m.month))}
+                      </strong>
                       <DueStateBadge state={latest.state} />
                       <span>{formatINR(r.owed)} owed</span>
                     </span>

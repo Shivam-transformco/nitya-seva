@@ -1,6 +1,6 @@
-import type { DueNoteDoc, PledgeDoc } from "../../domain/types.js";
+import type { DueNoteDoc, Pause, PledgeDoc, PledgeStatus, Schedule } from "../../domain/types.js";
 import { addMonths, daysInMonth, istMonth, monthsBetween } from "../../lib/dates.js";
-import { monthsBetweenGifts } from "../pledges/pledges.rules.js";
+import { monthsBetweenGifts, scheduleAfter } from "../pledges/pledges.rules.js";
 
 /**
  * - paid / partial: money came for it (partial = less than the pledged amount)
@@ -24,20 +24,62 @@ export interface LedgerMonth {
 
 export type LedgerPledge = Pick<
   PledgeDoc,
-  "amount" | "frequency" | "status" | "dueFrom" | "dueDay" | "pauses" | "stoppedFrom" | "amountHistory" | "paymentSetup" | "givingSince" | "createdAt"
+  | "amount"
+  | "frequency"
+  | "status"
+  | "dueFrom"
+  | "dueDay"
+  | "pauses"
+  | "stoppedFrom"
+  | "amountHistory"
+  | "paymentSetup"
+  | "givingSince"
+  | "lastStatusChange"
+  | "createdAt"
+  | "updatedAt"
 >;
 
 /** Statuses that have dues. */
 export const DUE_STATUSES = ["confirmed", "paused", "cancelled"] as const;
 
 /**
- * The first month due. Pledges confirmed before schedules existed have no `dueFrom`; for those,
- * the earliest of their first payment and the month they were created.
+ * The schedule the ledger works from. Pledges confirmed before schedules were kept have none until
+ * `scripts/backfill-schedules.ts` runs; for those it's a best guess: dues start at "giving since", the
+ * mandate's first month, the month they were confirmed (if that was the last change) or created, or an
+ * earlier payment; a paused or cancelled one counts as paused or stopped since its last status change.
  */
-export function firstDueMonth(p: LedgerPledge, firstPaymentMonth?: string): string {
-  if (p.dueFrom) return p.dueFrom;
-  const fallback = p.givingSince ?? p.paymentSetup?.mandate?.startMonth ?? istMonth(p.createdAt);
-  return firstPaymentMonth && firstPaymentMonth < fallback ? firstPaymentMonth : fallback;
+export function scheduleFor(p: LedgerPledge, firstPaymentMonth?: string): Required<Pick<Schedule, "dueFrom" | "pauses">> & Schedule {
+  if (p.dueFrom) return { dueFrom: p.dueFrom, pauses: p.pauses ?? [], ...(p.stoppedFrom ? { stoppedFrom: p.stoppedFrom } : {}) };
+  const changed = istMonth(p.lastStatusChange?.at ?? p.updatedAt);
+  const confirmed = p.lastStatusChange?.to === "confirmed" ? changed : undefined;
+  const guess = p.givingSince ?? p.paymentSetup?.mandate?.startMonth ?? confirmed ?? istMonth(p.createdAt);
+  return {
+    dueFrom: firstPaymentMonth && firstPaymentMonth < guess ? firstPaymentMonth : guess,
+    pauses: p.status === "paused" ? [{ from: changed }] : [],
+    ...(p.status === "cancelled" ? { stoppedFrom: changed } : {}),
+  };
+}
+
+/**
+ * The schedule an older pledge would have had, replaying its status changes from the activity log
+ * (`changes` oldest first). Falls back to the best guess when the log doesn't end at the pledge's
+ * current status (changes from before the log existed). A payment for an earlier month moves the start back.
+ */
+export function scheduleFromHistory(
+  p: LedgerPledge,
+  changes: { to: PledgeStatus; at: Date }[],
+  firstPaymentMonth?: string,
+): Schedule & { dueFrom: string; fromHistory: boolean } {
+  let status: PledgeStatus = "new";
+  let s: Schedule = {};
+  for (const c of changes) {
+    if (c.to === status) continue;
+    s = scheduleAfter({ ...s, givingSince: p.givingSince, paymentSetup: p.paymentSetup }, c.to, istMonth(c.at));
+    status = c.to;
+  }
+  if (status !== p.status || !s.dueFrom) return { ...scheduleFor({ ...p, dueFrom: undefined }, firstPaymentMonth), fromHistory: false };
+  const dueFrom = firstPaymentMonth && firstPaymentMonth < s.dueFrom ? firstPaymentMonth : s.dueFrom;
+  return { ...s, dueFrom, fromHistory: true };
 }
 
 /** The day of the month a gift is due: the pledge's own, else the mandate's debit day, else the last day. */
@@ -52,8 +94,7 @@ export function amountFor(p: Pick<LedgerPledge, "amount" | "amountHistory">, mon
   return p.amount;
 }
 
-const pausedIn = (p: Pick<LedgerPledge, "pauses">, month: string) =>
-  (p.pauses ?? []).some((x) => x.from <= month && (!x.to || month <= x.to));
+const pausedIn = (pauses: Pause[], month: string) => pauses.some((x) => x.from <= month && (!x.to || month <= x.to));
 
 /**
  * Every month a gift was due, from `from` to `to` (both "YYYY-MM"), never past today.
@@ -68,10 +109,10 @@ export function ledger(
   today: { month: string; day: number },
 ): LedgerMonth[] {
   if (!(DUE_STATUSES as readonly string[]).includes(p.status) || p.amount <= 0) return [];
-  const sorted = payments.map((x) => x.month).sort();
-  const start = firstDueMonth(p, sorted[0]);
+  const schedule = scheduleFor(p, payments.map((x) => x.month).sort()[0]);
+  const start = schedule.dueFrom;
   const step = monthsBetweenGifts(p.frequency);
-  const end = [range.to, today.month, p.stoppedFrom ? addMonths(p.stoppedFrom, -1) : "9999-12"].sort()[0]!;
+  const end = [range.to, today.month, schedule.stoppedFrom ? addMonths(schedule.stoppedFrom, -1) : "9999-12"].sort()[0]!;
 
   const out: LedgerMonth[] = [];
   const months = step === null ? [start] : [];
@@ -89,7 +130,7 @@ export function ledger(
     let state: MonthState;
     if (paid >= expected) state = "paid";
     else if (note?.excused) state = "excused";
-    else if (paid === 0 && pausedIn(p, month)) state = "paused";
+    else if (paid === 0 && pausedIn(schedule.pauses, month)) state = "paused";
     else if (paid > 0) state = "partial";
     else if (month < today.month) state = "missed";
     else state = today.day > dueDayOf(p, month) ? "overdue" : "due";
@@ -109,6 +150,9 @@ export function missedInRow(months: LedgerMonth[]): number {
   }
   return n;
 }
+
+/** The months not (fully) paid and not excused, oldest first, including ones before a later payment. */
+export const unpaidMonths = (months: LedgerMonth[]) => months.filter((m) => OWING.includes(m.state)).map((m) => m.month);
 
 /** What's still owed across the months: the unpaid part of each owing month. */
 export const owedIn = (months: LedgerMonth[]) =>

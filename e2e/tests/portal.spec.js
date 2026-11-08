@@ -589,6 +589,7 @@ test("missed months show up with their reasons, in reports and the overdue list"
   // Three months gone with nothing paid; this month's isn't due until the month end.
   const dues = admin.locator(".p-card", { has: admin.getByRole("heading", { name: "Payments by month" }) });
   await expect(dues).toContainText("3 gifts in a row not paid · ₹1,500 owed in the last 12 months.");
+  await expect(dues).toContainText("₹500 is still to come, due by day");
   const months = dues.locator(".dues-list > li");
   await expect(months).toHaveCount(4);
   await expect(months.first()).toContainText("Still to come");
@@ -607,6 +608,7 @@ test("missed months show up with their reasons, in reports and the overdue list"
   await nav(admin, "Pledges").click();
   await admin.getByRole("tab", { name: "Payment overdue" }).click();
   await expect(admin.getByRole("link", { name: /Late Sevak/ })).toContainText("2 payments missed");
+  await expect(admin.getByRole("link", { name: /Late Sevak/ })).toContainText("₹500 due by");
   await expect(admin.getByRole("link", { name: /Form Devotee/ })).toHaveCount(0);
 
   await nav(admin, "Reports").click();
@@ -641,6 +643,17 @@ test("missed months show up with their reasons, in reports and the overdue list"
   await admin.getByRole("form", { name: "Edit details" }).getByLabel("Due on day").fill("10");
   await admin.getByRole("form", { name: "Edit details" }).getByRole("button", { name: "Save details" }).click();
   await expect(details).toContainText("by day 10");
+
+  // Paying last month doesn't hide the month before it.
+  const paid = await admin.request.post(`${API_URL}/api/pledges/${pledgeId}/payments`, {
+    data: { amount: 500, month: monthsAgo(1), method: "upi" },
+  });
+  expect(paid.ok()).toBe(true);
+  const lateRow = (await (await admin.request.get(`${API_URL}/api/dues/overdue`)).json()).data.find((r) => r.sevak.name === "Late Sevak");
+  expect(lateRow.months.map((m) => m.month)).toContain(monthsAgo(2));
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("tab", { name: "Payment overdue" }).click();
+  await expect(admin.getByRole("link", { name: /Late Sevak/ }).locator(".badge-due-missed")).toBeVisible();
 });
 
 test("yearly statements list each sevak's payments by financial year", async () => {

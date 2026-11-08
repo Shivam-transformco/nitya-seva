@@ -69,6 +69,7 @@ server/
   scripts/
     create-admin.ts       First owner account
     set-role.ts           Change an existing account's role
+    backfill-schedules.ts Record dues schedules for older pledges from their history (--apply to save)
     migrate-submissions.ts  Old `submissions` collection to sevaks + pledges
     ensure-indexes.ts
   tests/                  vitest unit tests for pure logic

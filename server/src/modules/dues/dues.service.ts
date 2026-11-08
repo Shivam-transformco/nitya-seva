@@ -10,7 +10,7 @@ import { loadForPayments } from "../pledges/pledges.service.js";
 import * as sevaksRepo from "../sevaks/sevaks.repository.js";
 import { loadLedgers, lookback, userNames, withNoteName, type PledgeLedger } from "./dues.ledgers.js";
 import * as repo from "./dues.repository.js";
-import { missedInRow, MONTH_STATES, OWING, owedIn, totalsFor, type LedgerMonth, type MonthState } from "./dues.rules.js";
+import { missedInRow, MONTH_STATES, OWING, owedIn, totalsFor, unpaidMonths, type LedgerMonth, type MonthState } from "./dues.rules.js";
 
 const visibleTo = (actor: Actor): Filter<PledgeDoc> => (can(actor.role, "pledges.viewAll") ? {} : { assignedTo: actor.id });
 const canNote = (actor: Actor, p: PledgeDoc) => can(actor.role, "payments.manage") || p.assignedTo?.equals(actor.id) === true;
@@ -99,7 +99,7 @@ export async function month(actor: Actor, m: string) {
 /** Sevaks who committed and haven't paid: overdue this month or missed in the last year, longest run first. */
 export async function overdue(actor: Actor) {
   const today = istToday();
-  const ledgers = (await loadLedgers(visibleTo(actor), lookback(today), today)).filter((l) => missedInRow(l.months) > 0);
+  const ledgers = (await loadLedgers(visibleTo(actor), lookback(today), today)).filter((l) => unpaidMonths(l.months).length > 0);
   const { describe, nameOf } = await describer(ledgers);
   return ledgers
     .map((l) => {
