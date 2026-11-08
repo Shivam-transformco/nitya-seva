@@ -20,3 +20,21 @@ export async function insert(payment: Omit<PaymentDoc, "_id" | "createdAt">): Pr
 export async function listForPledge(pledgeId: ObjectId): Promise<PaymentDoc[]> {
   return (await collections.payments()).find({ pledgeId }).sort({ month: -1, receivedAt: -1 }).toArray();
 }
+
+export async function countForPledge(pledgeId: ObjectId): Promise<number> {
+  return (await collections.payments()).countDocuments({ pledgeId });
+}
+
+export async function findById(id: ObjectId): Promise<PaymentDoc | null> {
+  return (await collections.payments()).findOne({ _id: id });
+}
+
+export async function removeByIds(ids: ObjectId[]): Promise<void> {
+  if (ids.length) await (await collections.payments()).deleteMany({ _id: { $in: ids } });
+}
+
+/** Puts documents back as they were, receipt numbers included; safe to repeat. */
+export async function restore(docs: PaymentDoc[]): Promise<void> {
+  const col = await collections.payments();
+  await Promise.all(docs.map((d) => col.replaceOne({ _id: d._id }, d, { upsert: true })));
+}

@@ -3,18 +3,22 @@ import { normalizePhone } from "../../lib/phone.js";
 
 export const DEFAULT_SEVA = "Prachar Sahyog Seva";
 
+export const sevakName = z.string().trim().min(1, "is required").max(100);
+export const sevakEmail = z.union([z.literal(""), z.email().max(200)]);
+export const sevakPhone = z
+  .string()
+  .max(30)
+  .transform((s, ctx) => {
+    const phone = normalizePhone(s);
+    if (!phone) ctx.addIssue({ code: "custom", message: "is not a valid phone number" });
+    return phone ?? "";
+  });
+
 /** Matches what the public site sends today (amount as a string, consent as "yes"). */
 export const submitBody = z.object({
-  name: z.string().trim().min(1, "is required").max(100),
-  phone: z
-    .string()
-    .max(30)
-    .transform((s, ctx) => {
-      const phone = normalizePhone(s);
-      if (!phone) ctx.addIssue({ code: "custom", message: "is not a valid phone number" });
-      return phone ?? "";
-    }),
-  email: z.union([z.literal(""), z.email().max(200)]).default(""),
+  name: sevakName,
+  phone: sevakPhone,
+  email: sevakEmail.default(""),
   amount: z.coerce
     .number({ error: "must be a number" })
     .int("must be a whole number of rupees")

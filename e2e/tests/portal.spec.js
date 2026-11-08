@@ -330,6 +330,108 @@ test("an admin changes the monthly goal and the website follows", async () => {
   expect(res.status()).toBe(403);
 });
 
+test("a misclicked status is undone, and a mistaken follow-up deleted", async () => {
+  await nav(devotee, "My sevaks").click();
+  await devotee.getByRole("link", { name: new RegExp(SEVAK.name) }).click();
+  const status = devotee.locator(".p-card", { has: devotee.getByRole("heading", { name: "Status" }) });
+
+  await status.getByRole("button", { name: "Mark paused" }).click();
+  await expect(devotee.locator(".detail-sub .badge").first()).toHaveText("Paused");
+  await expect(status.locator(".undo-note")).toContainText(`Changed from Confirmed to Paused by ${DEVOTEE.name}`);
+  await status.getByRole("button", { name: "Undo · back to confirmed" }).click();
+  await expect(devotee.locator(".detail-sub .badge").first()).toHaveText("Confirmed");
+  await expect(status.locator(".undo-note")).toHaveCount(0);
+  await expect(status.getByText("Correct the status")).toHaveCount(0);
+
+  const history = devotee.locator(".timeline li");
+  await expect(history).toHaveCount(4);
+  const form = devotee.getByRole("form", { name: "Log a follow-up" });
+  await form.getByText("No answer").click();
+  await form.getByLabel("Notes").fill("Logged on the wrong sevak");
+  await form.getByRole("button", { name: "Save follow-up" }).click();
+  await expect(history).toHaveCount(5);
+  await history.filter({ hasText: "Logged on the wrong sevak" }).getByRole("button", { name: "Delete this follow-up" }).click();
+  await expect(history).toHaveCount(4);
+  await expect(devotee.locator(".timeline")).not.toContainText("Logged on the wrong sevak");
+
+  // Payments were recorded, so it can't go back to a never-confirmed status, even by correction.
+  const id = devotee.url().split("/").pop();
+  const res = await admin.request.patch(`${API_URL}/api/pledges/${id}/status`, { data: { status: "contacted", correction: true } });
+  expect(res.status()).toBe(400);
+  expect((await res.json()).error).toContain("has payments recorded");
+  const asDevotee = await devotee.request.patch(`${API_URL}/api/pledges/${id}/status`, { data: { status: "new", correction: true } });
+  expect(asDevotee.status()).toBe(403);
+});
+
+test("staff correct the sevak's details and amount", async () => {
+  const details = devotee.locator(".p-card", { has: devotee.getByRole("heading", { name: "Details" }) });
+  await details.getByRole("button", { name: "Edit" }).click();
+  const form = devotee.getByRole("form", { name: "Edit details" });
+  await expect(form.getByLabel("Phone")).toHaveValue("+919876543210");
+
+  await form.getByLabel("Phone").fill("9123456789");
+  await form.getByRole("button", { name: "Save details" }).click();
+  await expect(form.getByRole("alert")).toContainText("already belongs to Spam Bot");
+
+  await form.getByLabel("Phone").fill("+91 98765 43210");
+  await form.getByLabel(/^Email/).fill("radha.devi@example.org");
+  await form.getByLabel(/^Amount a month/).fill("1200");
+  await form.getByLabel("Next follow-up").fill("2030-02-01T10:00");
+  await form.getByRole("button", { name: "Save details" }).click();
+  await expect(devotee.locator(".detail-sub")).toContainText("₹1,200");
+  await expect(details).toContainText("radha.devi@example.org");
+  await expect(details).toContainText("1 Feb 2030");
+  expect(await publicStats(admin)).toMatchObject({ totalPledged: 1000 });
+});
+
+test("an admin deletes a payment and a pledge, and restores them", async () => {
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("link", { name: new RegExp(SEVAK.name) }).click();
+  const history = admin.locator(".timeline li");
+  await expect(history).toHaveCount(4);
+  await admin.getByRole("button", { name: /Delete payment NS-\d{4}-000002/ }).click();
+  await expect(history).toHaveCount(3);
+  await expect(admin.locator(".timeline")).not.toContainText("ECS-STMT-0905");
+
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("tab", { name: "Not genuine" }).click();
+  await admin.getByRole("link", { name: /Spam Bot/ }).click();
+  const id = admin.url().split("/").pop();
+  expect((await devotee.request.delete(`${API_URL}/api/pledges/${id}`)).status()).toBe(403);
+  const remove = admin.locator(".p-card-danger");
+  await remove.getByLabel(/Reason/).fill("Cleaning up spam");
+  await remove.getByRole("button", { name: "Delete pledge" }).click();
+  await expect(admin.getByRole("heading", { name: "Pledges" })).toBeVisible();
+  expect((await admin.request.get(`${API_URL}/api/pledges/${id}`)).status()).toBe(404);
+
+  await admin.getByRole("link", { name: "Recently deleted" }).click();
+  await expect(admin.getByRole("heading", { name: "Recently deleted" })).toBeVisible();
+  const rows = admin.locator(".rows li");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.filter({ hasText: `Follow-up · ${SEVAK.name}` })).toContainText(`Deleted by ${DEVOTEE.name}`);
+  const pledgeRow = rows.filter({ hasText: "Pledge · Spam Bot" });
+  await expect(pledgeRow).toContainText("₹999 a month");
+  await expect(pledgeRow).toContainText("“Cleaning up spam”");
+  const paymentRow = rows.filter({ hasText: `Payment · ${SEVAK.name}` });
+  await expect(paymentRow).toContainText("₹1,000");
+
+  await paymentRow.getByRole("button", { name: "Restore" }).click();
+  await expect(admin.getByRole("heading", { name: SEVAK.name })).toBeVisible();
+  await expect(admin.locator(".timeline")).toContainText("ECS-STMT-0905");
+
+  await admin.goto("/portal/#/deleted");
+  await rows.filter({ hasText: "Pledge · Spam Bot" }).getByRole("button", { name: "Restore" }).click();
+  await expect(admin.getByRole("heading", { name: "Spam Bot" })).toBeVisible();
+  await expect(admin.locator(".p-banner-flag")).toContainText("Number doesn't exist");
+
+  await admin.locator(".p-card-danger").getByRole("button", { name: "Delete pledge" }).click();
+  await admin.getByRole("link", { name: "Recently deleted" }).click();
+  await rows.filter({ hasText: "Pledge · Spam Bot" }).getByRole("button", { name: "Delete for good" }).click();
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText(`Follow-up · ${SEVAK.name}`);
+  expect((await devotee.request.get(`${API_URL}/api/deleted`)).status()).toBe(403);
+});
+
 test("the daily job only runs with its secret", async ({ request }) => {
   expect((await request.get(`${API_URL}/api/cron/daily`)).status()).toBe(403);
   const res = await request.get(`${API_URL}/api/cron/daily`, {

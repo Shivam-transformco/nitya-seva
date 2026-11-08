@@ -57,6 +57,7 @@ server/
       payments/           manual payment records, receipt numbers
       notifications/      in-portal notifications
       reports/            summary, monthly collections, volunteer activity, CSV
+      bin/                deleting pledges and payments, "Recently deleted", restore
       audit/              audit log writer
       cron/               daily job endpoint
   scripts/
@@ -82,7 +83,9 @@ Money is stored as **whole rupees in an integer** (all offerings are whole rupee
 One sevak can have several pledges over time. Phone is the identity because it is required and is how devotees reach them.
 
 ### `pledges`
-`sevakId, seva, amount, frequency: "Monthly", status, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent? }, nextFollowUpAt?, lastContactAt?, flag?, hiddenFromCounter?, paymentSetup?, legacyId?, createdAt, updatedAt`
+`sevakId, seva, amount, frequency: "Monthly", status, assignedTo?, message, consent, source: { submittedFrom, ip?, userAgent? }, nextFollowUpAt?, lastContactAt?, flag?, hiddenFromCounter?, paymentSetup?, lastStatusChange?, legacyId?, createdAt, updatedAt`
+
+`lastStatusChange: { from, to, by, at, followupId?, nextFollowUpAt? }` is the most recent status change, so it can be undone; see "Corrections" below.
 
 `paymentSetup` records how the sevak gives, independent of `status`:
 
@@ -105,8 +108,12 @@ new ──► contacted ──► confirmed ◄──► paused
 - `lost`: never became a sevak (declined, unreachable).
 - `cancelled`: was confirmed, has stopped.
 
+**Corrections.** Anyone working on a pledge can undo its last status change (`POST /status/undo`), whether a button or a follow-up made it; one level, and only while the status is still what the change set. Admins can also set any status with `correction: true`. Neither may move a pledge with payments back to `new`, `contacted` or `lost`.
+
 ### `followups` (every interaction)
-`pledgeId, sevakId, byUserId, channel: "call" | "whatsapp" | "visit" | "note", outcome: "reached" | "no_answer" | "callback" | "confirmed" | "declined", note, nextFollowUpAt?, createdAt`
+`pledgeId, sevakId, byUserId, channel: "call" | "whatsapp" | "visit" | "note", outcome: "reached" | "no_answer" | "callback" | "confirmed" | "declined", note, nextFollowUpAt?, before?: { lastContactAt?, nextFollowUpAt? }, createdAt`
+
+`before` is the pledge's contact dates just before the follow-up was logged. Deleting the latest follow-up puts them back, and undoes a status change it caused.
 
 Logging a follow-up updates the pledge's `lastContactAt` and `nextFollowUpAt`, and moves `new` to `contacted`. Outcomes `confirmed` and `declined` move the pledge to `confirmed` and `lost`.
 
@@ -122,6 +129,19 @@ Types: `pledge.new` (all admins), `pledge.assigned` (assignee), `followup.due` (
 
 ### `auditLogs`
 `actorId, action, entity, entityId, data, createdAt`
+
+### `deletedItems` (the "Recently deleted" bin)
+`kind: "pledge" | "followup" | "payment", itemId, pledgeId, sevakId, reason, pledge?, followups[], payments[], deletedBy, deletedAt`
+
+Deleting moves the whole document here (a pledge brings its follow-ups and payments), so the live collections, counter and reports never need a "deleted" filter. It's written to the bin before the originals are removed, and restoring upserts by `_id`, so a failure part way loses nothing and a retry is safe. Restored payments keep their receipt numbers, which are never reused.
+
+| Delete | Who |
+| --- | --- |
+| Pledge | Admin |
+| Payment | Admin, or whoever recorded it |
+| Follow-up | Admin, or whoever logged it |
+
+Restoring and "delete for good" are admin only (`/portal/#/deleted`). A follow-up or payment whose pledge is in the bin can only be restored after the pledge.
 
 ### Support collections
 - `counters`: `{ _id: "receipt-2026", seq }`
@@ -156,7 +176,13 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 | --- | --- | --- |
 | GET | `/api/pledges?status=&assignedTo=&due=&mode=&mandate=&q=&page=&limit=` | admin: all; followup: own. `mode` is a payment mode or `none` |
 | GET | `/api/pledges/:id` | pledge with sevak, follow-ups and payments |
-| PATCH | `/api/pledges/:id/status` | transition rules apply |
+| PATCH | `/api/pledges/:id` | amount, seva, message, next follow-up; audited |
+| DELETE | `/api/pledges/:id` | admin; moves it to the bin |
+| PATCH | `/api/pledges/:id/sevak` | name, phone, email (shared by the sevak's pledges); a phone already in use is a 409 |
+| PATCH | `/api/pledges/:id/status` | transition rules apply; `correction: true` (admin) skips them |
+| POST | `/api/pledges/:id/status/undo` | undo the last status change |
+| DELETE | `/api/pledges/:id/followups/:followupId`, `/api/pledges/:id/payments/:paymentId` | to the bin |
+| GET | `/api/deleted?kind=&page=`, POST `/api/deleted/:id/restore`, DELETE `/api/deleted/:id` | admin |
 | PATCH | `/api/pledges/:id/assign` | admin |
 | PUT/DELETE | `/api/pledges/:id/payment-setup` | how the sevak pays; audited |
 | GET/POST | `/api/pledges/:id/followups` | |

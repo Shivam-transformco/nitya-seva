@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AUTO_DEBIT_MODES, MANDATE_STATUSES, PAYMENT_MODES, PLEDGE_FLAGS, PLEDGE_STATUSES } from "../../domain/types.js";
 import { MONTH_RE } from "../../lib/dates.js";
 import { objectId, pagination } from "../../lib/http.js";
+import { sevakEmail, sevakName, sevakPhone } from "../public/public.schema.js";
 
 export const listPledgesQuery = pagination.extend({
   status: z.enum(PLEDGE_STATUSES).optional(),
@@ -22,7 +23,25 @@ export const listPledgesQuery = pagination.extend({
 export const updateStatusBody = z.object({
   status: z.enum(PLEDGE_STATUSES),
   note: z.string().trim().max(1000).optional(),
+  /** Admins may set any status to put a mistake right, outside the usual lifecycle. */
+  correction: z.boolean().default(false),
 });
+
+export const editPledgeBody = z
+  .object({
+    amount: z.number().int().min(1).max(10_00_000).optional(),
+    seva: z.string().trim().min(1, "is required").max(100).optional(),
+    message: z.string().trim().max(2000).optional(),
+    /** null clears it. */
+    nextFollowUpAt: z.coerce.date().nullable().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "nothing to change" });
+
+export const editSevakBody = z
+  .object({ name: sevakName.optional(), phone: sevakPhone.optional(), email: sevakEmail.optional() })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "nothing to change" });
+
+export const deleteBody = z.object({ reason: z.string().trim().max(300).default("") }).default({ reason: "" });
 
 export const assignBody = z.object({ userId: objectId.nullable() });
 

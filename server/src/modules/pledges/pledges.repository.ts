@@ -32,6 +32,22 @@ export async function update(id: ObjectId, set: Partial<Omit<PledgeDoc, "_id">>,
   );
 }
 
+/** Hex ids of the pledges in `ids` that exist. */
+export async function existing(ids: ObjectId[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const docs = await (await collections.pledges()).find({ _id: { $in: ids } }, { projection: { _id: 1 } }).toArray();
+  return new Set(docs.map((d) => d._id.toHexString()));
+}
+
+export async function remove(id: ObjectId): Promise<void> {
+  await (await collections.pledges()).deleteOne({ _id: id });
+}
+
+/** Puts a deleted pledge back as it was; safe to repeat. */
+export async function restore(doc: PledgeDoc): Promise<void> {
+  await (await collections.pledges()).replaceOne({ _id: doc._id }, doc, { upsert: true });
+}
+
 /** Pledges with a follow-up due by `before`, assigned to someone and still in progress. */
 export async function listDue(before: Date): Promise<PledgeDoc[]> {
   return (await collections.pledges())

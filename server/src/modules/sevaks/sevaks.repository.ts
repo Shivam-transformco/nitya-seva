@@ -21,6 +21,14 @@ export async function findById(id: ObjectId): Promise<SevakDoc | null> {
   return (await collections.sevaks()).findOne({ _id: id });
 }
 
+export async function findByPhone(phone: string): Promise<SevakDoc | null> {
+  return (await collections.sevaks()).findOne({ phone });
+}
+
+export async function update(id: ObjectId, set: Partial<Pick<SevakDoc, "name" | "phone" | "email">>): Promise<SevakDoc | null> {
+  return (await collections.sevaks()).findOneAndUpdate({ _id: id }, { $set: { ...set, updatedAt: new Date() } }, { returnDocument: "after" });
+}
+
 export async function findByIds(ids: ObjectId[]): Promise<Map<string, SevakDoc>> {
   if (!ids.length) return new Map();
   const docs = await (await collections.sevaks()).find({ _id: { $in: ids } }).toArray();

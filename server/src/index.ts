@@ -8,6 +8,7 @@ import { actorOf, requireAuth, requireRole } from "./middleware/auth.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { binRouter } from "./modules/bin/bin.routes.js";
 import { counterRouter } from "./modules/counter/counter.routes.js";
 import { cronRouter } from "./modules/cron/cron.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
@@ -46,6 +47,7 @@ export function createApp() {
   app.use("/api/users", ...staff, requireRole("admin"), usersRouter);
   app.use("/api/reports", ...staff, requireRole("admin"), reportsRouter);
   app.use("/api/counter", ...staff, requireRole("admin"), counterRouter);
+  app.use("/api/deleted", ...staff, requireRole("admin"), binRouter);
   app.use("/api/cron", cronRouter);
 
   app.use(notFoundHandler);

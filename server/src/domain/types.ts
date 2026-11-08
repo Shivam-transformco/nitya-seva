@@ -96,10 +96,23 @@ export interface PledgeDoc {
   hiddenFromCounter?: boolean;
   /** How they pay (ECS, UPI AutoPay or each month by hand). Unset until staff record it. */
   paymentSetup?: PaymentSetup;
+  /** The most recent status change, kept so a misclick can be undone. Cleared by the undo. */
+  lastStatusChange?: StatusChange;
   /** _id of the original document in the old `submissions` collection. */
   legacyId?: ObjectId;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface StatusChange {
+  from: PledgeStatus;
+  to: PledgeStatus;
+  by: ObjectId;
+  at: Date;
+  /** Set when logging this follow-up made the change. */
+  followupId?: ObjectId;
+  /** The next follow-up before the change; closing a pledge clears it. */
+  nextFollowUpAt?: Date;
 }
 
 export interface FollowupDoc {
@@ -111,6 +124,8 @@ export interface FollowupDoc {
   outcome: FollowupOutcome;
   note: string;
   nextFollowUpAt?: Date;
+  /** The pledge's contact dates just before this was logged, restored if it's deleted while still the latest. */
+  before?: { lastContactAt?: Date; nextFollowUpAt?: Date };
   createdAt: Date;
 }
 
@@ -178,6 +193,28 @@ export interface CounterSettingsDoc {
   target: number;
   updatedBy: ObjectId;
   updatedAt: Date;
+}
+
+export const DELETED_KINDS = ["pledge", "followup", "payment"] as const;
+export type DeletedKind = (typeof DELETED_KINDS)[number];
+
+/**
+ * Something staff deleted, moved here whole so it can be restored. A deleted pledge carries its
+ * follow-ups and payments with it; the live collections never see deleted documents.
+ */
+export interface DeletedItemDoc {
+  _id: ObjectId;
+  kind: DeletedKind;
+  /** _id of the deleted pledge, follow-up or payment. */
+  itemId: ObjectId;
+  pledgeId: ObjectId;
+  sevakId: ObjectId;
+  reason: string;
+  pledge?: PledgeDoc;
+  followups: FollowupDoc[];
+  payments: PaymentDoc[];
+  deletedBy: ObjectId;
+  deletedAt: Date;
 }
 
 export interface RateLimitDoc {

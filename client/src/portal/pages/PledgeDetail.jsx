@@ -8,6 +8,7 @@ import {
   METHOD_LABELS,
   MODE_LABELS,
   OUTCOME_LABELS,
+  STATUSES,
   STATUS_LABELS,
   currentMonth,
   defaultMethod,
@@ -16,11 +17,12 @@ import {
   formatDateTime,
   formatINR,
   monthLabel,
+  plural,
   telLink,
   todayInput,
   waLink,
 } from "../format";
-import { Link } from "../router";
+import { Link, navigate } from "../router";
 import { DueBadge, Empty, ErrorNote, Field, Loading, ModeBadge, StatusBadge } from "../ui";
 
 const CAN_PAY = ["confirmed", "paused"];
@@ -77,35 +79,13 @@ export default function PledgeDetail({ id, user }) {
 
       <div className="detail-grid">
         <div className="detail-col">
-          <section className="p-card">
-            <h2>Details</h2>
-            <dl className="facts">
-              <dt>Phone</dt>
-              <dd>{p.sevak?.phone ?? "—"}</dd>
-              <dt>Email</dt>
-              <dd>{p.sevak?.email ? <a href={`mailto:${p.sevak.email}`}>{p.sevak.email}</a> : "—"}</dd>
-              <dt>Pledged on</dt>
-              <dd>{formatDate(p.createdAt)}</dd>
-              <dt>Last contact</dt>
-              <dd>{formatDateTime(p.lastContactAt)}</dd>
-              <dt>Next follow-up</dt>
-              <dd>{p.nextFollowUpAt && !p.flag ? <DueBadge due={dueLabel(p.nextFollowUpAt)} /> : "None scheduled"}</dd>
-              <dt>Assigned to</dt>
-              <dd>{p.assignee?.name ?? "Nobody yet"}</dd>
-            </dl>
-            {p.message && (
-              <blockquote className="sevak-message">
-                <span className="p-label">Their message</span>
-                {p.message}
-              </blockquote>
-            )}
-          </section>
-
-          <StatusCard pledge={p} onChanged={reload} />
+          <DetailsCard pledge={p} onChanged={reload} />
+          <StatusCard pledge={p} isAdmin={isAdmin} onChanged={reload} />
           {!p.flag && <PaymentSetupCard pledge={p} onChanged={reload} />}
           {isAdmin && <AssignCard pledge={p} onChanged={reload} />}
           {isAdmin && <CounterCard pledge={p} onChanged={reload} />}
           <FlagCard pledge={p} onChanged={reload} />
+          {isAdmin && <DeleteCard pledge={p} onDeleted={() => navigate("/pledges")} />}
         </div>
 
         <div className="detail-col">
@@ -122,24 +102,62 @@ export default function PledgeDetail({ id, user }) {
               </p>
             </section>
           )}
-          <History pledge={p} />
+          <History pledge={p} user={user} onChanged={reload} />
         </div>
       </div>
     </>
   );
 }
 
-function StatusCard({ pledge, onChanged }) {
-  const [note, setNote] = useState("");
+/** Value for <input type="datetime-local"> in the browser's timezone. */
+function localInput(d) {
+  if (!d) return "";
+  const date = new Date(d);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+const detailsForm = (p) => ({
+  name: p.sevak?.name ?? "",
+  phone: p.sevak?.phone ?? "",
+  email: p.sevak?.email ?? "",
+  amount: String(p.amount),
+  seva: p.seva,
+  message: p.message ?? "",
+  nextFollowUpAt: localInput(p.nextFollowUpAt),
+});
+
+const CLOSED = ["lost", "cancelled"];
+
+function DetailsCard({ pledge: p, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(() => detailsForm(p));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  async function change(status) {
+  async function submit(e) {
+    e.preventDefault();
     setError(null);
+    const was = detailsForm(p);
+    const amount = Number(form.amount);
+    if (!Number.isInteger(amount) || amount < 1) return setError(new Error("Enter the amount in whole rupees."));
+    if (!form.name.trim()) return setError(new Error("Enter their name."));
+
+    const sevak = {};
+    for (const k of ["name", "phone", "email"]) if (form[k].trim() !== was[k]) sevak[k] = form[k].trim();
+    const pledge = {};
+    if (amount !== p.amount) pledge.amount = amount;
+    if (form.seva.trim() !== was.seva) pledge.seva = form.seva.trim();
+    if (form.message.trim() !== was.message.trim()) pledge.message = form.message.trim();
+    if (form.nextFollowUpAt !== was.nextFollowUpAt) {
+      pledge.nextFollowUpAt = form.nextFollowUpAt ? new Date(form.nextFollowUpAt).toISOString() : null;
+    }
+
     setBusy(true);
     try {
-      await api(`/pledges/${pledge._id}/status`, { method: "PATCH", body: { status, note: note.trim() || undefined } });
-      setNote("");
+      if (Object.keys(sevak).length) await api(`/pledges/${p._id}/sevak`, { method: "PATCH", body: sevak });
+      if (Object.keys(pledge).length) await api(`/pledges/${p._id}`, { method: "PATCH", body: pledge });
+      setEditing(false);
       onChanged();
     } catch (err) {
       setError(err);
@@ -148,9 +166,174 @@ function StatusCard({ pledge, onChanged }) {
     }
   }
 
+  if (editing) {
+    return (
+      <form className="p-card p-form" onSubmit={submit} aria-label="Edit details" noValidate>
+        <h2>Edit details</h2>
+        <div className="p-grid-2">
+          <Field label="Name">
+            <input maxLength={100} required value={form.name} onChange={set("name")} />
+          </Field>
+          <Field label="Phone">
+            <input type="tel" maxLength={30} required value={form.phone} onChange={set("phone")} />
+          </Field>
+          <Field label="Email (optional)">
+            <input type="email" maxLength={200} value={form.email} onChange={set("email")} />
+          </Field>
+          <Field label="Amount a month (₹)">
+            <input type="number" min="1" step="1" inputMode="numeric" required value={form.amount} onChange={set("amount")} />
+          </Field>
+          <Field label="Seva">
+            <input maxLength={100} required value={form.seva} onChange={set("seva")} />
+          </Field>
+          {!CLOSED.includes(p.status) && (
+            <Field label="Next follow-up" hint="Leave empty for none.">
+              <input type="datetime-local" value={form.nextFollowUpAt} onChange={set("nextFollowUpAt")} />
+            </Field>
+          )}
+        </div>
+        <Field label="Their message">
+          <textarea rows="3" maxLength={2000} value={form.message} onChange={set("message")} />
+        </Field>
+        <p className="p-hint">Name, phone and email change on all of this sevak's pledges.</p>
+        <ErrorNote error={error} />
+        <div className="btn-row">
+          <button className="pbtn" disabled={busy}>
+            {busy ? "Saving…" : "Save details"}
+          </button>
+          <button type="button" className="pbtn pbtn-ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <section className="p-card">
+      <div className="card-head">
+        <h2>Details</h2>
+        <button
+          type="button"
+          className="pbtn pbtn-ghost pbtn-small"
+          onClick={() => {
+            setForm(detailsForm(p));
+            setError(null);
+            setEditing(true);
+          }}
+        >
+          Edit
+        </button>
+      </div>
+      <dl className="facts">
+        <dt>Phone</dt>
+        <dd>{p.sevak?.phone ?? "—"}</dd>
+        <dt>Email</dt>
+        <dd>{p.sevak?.email ? <a href={`mailto:${p.sevak.email}`}>{p.sevak.email}</a> : "—"}</dd>
+        <dt>Pledged on</dt>
+        <dd>{formatDate(p.createdAt)}</dd>
+        <dt>Last contact</dt>
+        <dd>{formatDateTime(p.lastContactAt)}</dd>
+        <dt>Next follow-up</dt>
+        <dd>{p.nextFollowUpAt && !p.flag ? <DueBadge due={dueLabel(p.nextFollowUpAt)} /> : "None scheduled"}</dd>
+        <dt>Assigned to</dt>
+        <dd>{p.assignee?.name ?? "Nobody yet"}</dd>
+      </dl>
+      {p.message && (
+        <blockquote className="sevak-message">
+          <span className="p-label">Their message</span>
+          {p.message}
+        </blockquote>
+      )}
+    </section>
+  );
+}
+
+function DeleteCard({ pledge, onDeleted }) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const count = pledge.followups.length + pledge.payments.length;
+
+  async function remove() {
+    const what = count ? ` and its ${plural(pledge.followups.length, "follow-up")} and ${plural(pledge.payments.length, "payment")}` : "";
+    if (!window.confirm(`Delete this pledge${what}? You can restore it from Recently deleted.`)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await api(`/pledges/${pledge._id}`, { method: "DELETE", body: { reason: reason.trim() } });
+      onDeleted();
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="p-card p-card-danger">
+      <h2>Delete pledge</h2>
+      <p className="p-muted">
+        Removes it from every list, report and the counter, with its follow-ups and payments. It goes to{" "}
+        <Link to="/deleted">Recently deleted</Link>, where an admin can restore it. For spam or duplicates, marking it as not
+        genuine is usually enough.
+      </p>
+      <Field label="Reason (optional)">
+        <input maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. entered twice by mistake" />
+      </Field>
+      <ErrorNote error={error} />
+      <button type="button" className="pbtn pbtn-danger" disabled={busy} onClick={remove}>
+        {busy ? "Deleting…" : "Delete pledge"}
+      </button>
+    </section>
+  );
+}
+
+function StatusCard({ pledge, isAdmin, onChanged }) {
+  const [note, setNote] = useState("");
+  const [correctTo, setCorrectTo] = useState("");
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const change = pledge.lastStatusChange;
+
+  async function run(request) {
+    setError(null);
+    setBusy(true);
+    try {
+      await request();
+      setNote("");
+      setCorrectTo("");
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const setStatus = (status, correction = false) =>
+    run(() =>
+      api(`/pledges/${pledge._id}/status`, { method: "PATCH", body: { status, note: note.trim() || undefined, correction } }),
+    );
+
   return (
     <section className="p-card">
       <h2>Status</h2>
+      {pledge.undoTo && change && (
+        <div className="undo-note" role="status">
+          <span>
+            Changed from <strong>{STATUS_LABELS[change.from]}</strong> to <strong>{STATUS_LABELS[change.to]}</strong> by{" "}
+            {change.byName}, {formatDateTime(change.at)}.
+          </span>
+          <button
+            type="button"
+            className="pbtn pbtn-ghost pbtn-small"
+            disabled={busy}
+            onClick={() => run(() => api(`/pledges/${pledge._id}/status/undo`, { method: "POST" }))}
+          >
+            Undo · back to {STATUS_LABELS[pledge.undoTo].toLowerCase()}
+          </button>
+        </div>
+      )}
       <p className="p-muted">
         Logging a follow-up updates the status for you. Use these for anything else.
       </p>
@@ -159,11 +342,30 @@ function StatusCard({ pledge, onChanged }) {
       </Field>
       <div className="btn-row">
         {pledge.allowedNextStatuses.map((s) => (
-          <button key={s} type="button" className="pbtn pbtn-ghost" disabled={busy} onClick={() => change(s)}>
+          <button key={s} type="button" className="pbtn pbtn-ghost" disabled={busy} onClick={() => setStatus(s)}>
             Mark {STATUS_LABELS[s].toLowerCase()}
           </button>
         ))}
       </div>
+      {isAdmin && (
+        <details className="p-more">
+          <summary>Correct the status</summary>
+          <p className="p-hint">For putting a mistake right: sets any status, outside the usual steps.</p>
+          <div className="btn-row">
+            <select aria-label="Correct status to" value={correctTo} onChange={(e) => setCorrectTo(e.target.value)}>
+              <option value="">Choose a status</option>
+              {STATUSES.filter((s) => s !== pledge.status).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="pbtn pbtn-ghost" disabled={busy || !correctTo} onClick={() => setStatus(correctTo, true)}>
+              Set status
+            </button>
+          </div>
+        </details>
+      )}
       <ErrorNote error={error} />
     </section>
   );
@@ -656,22 +858,57 @@ function PaymentForm({ pledge, onSaved }) {
   );
 }
 
-function History({ pledge }) {
+function History({ pledge, user, onChanged }) {
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const isAdmin = user.role === "admin";
   const events = [
-    ...pledge.followups.map((f) => ({ kind: "followup", at: f.createdAt, item: f })),
-    ...pledge.payments.map((pay) => ({ kind: "payment", at: pay.createdAt, item: pay })),
+    ...pledge.followups.map((f) => ({ kind: "followup", at: f.createdAt, item: f, mine: f.byUserId === user._id })),
+    ...pledge.payments.map((pay) => ({ kind: "payment", at: pay.createdAt, item: pay, mine: pay.recordedBy === user._id })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  async function remove(kind, item) {
+    const question =
+      kind === "payment"
+        ? `Delete the ${formatINR(item.amount)} payment for ${monthLabel(item.month)} (receipt ${item.receiptNo})? Its receipt number won't be reused.`
+        : "Delete this follow-up? If it was the latest one, the pledge's status and dates go back to how they were before it.";
+    if (!window.confirm(`${question}${isAdmin ? " You can restore it from Recently deleted." : ""}`)) return;
+    setError(null);
+    setBusyId(item._id);
+    try {
+      await api(`/pledges/${pledge._id}/${kind === "payment" ? "payments" : "followups"}/${item._id}`, { method: "DELETE" });
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <section className="p-card">
       <h2>History</h2>
+      <ErrorNote error={error} />
       {!events.length ? (
         <Empty>No follow-ups or payments yet.</Empty>
       ) : (
         <ol className="timeline">
-          {events.map(({ kind, at, item }) => (
+          {events.map(({ kind, at, item, mine }) => (
             <li key={item._id} className={`tl-${kind}`}>
-              <span className="tl-when">{formatDateTime(at)}</span>
+              <span className="tl-when">
+                {formatDateTime(at)}
+                {(isAdmin || mine) && (
+                  <button
+                    type="button"
+                    className="tl-delete"
+                    disabled={busyId === item._id}
+                    onClick={() => remove(kind, item)}
+                    aria-label={kind === "payment" ? `Delete payment ${item.receiptNo}` : "Delete this follow-up"}
+                  >
+                    Delete
+                  </button>
+                )}
+              </span>
               {kind === "followup" ? (
                 <>
                   <strong>

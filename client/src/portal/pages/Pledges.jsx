@@ -70,6 +70,13 @@ export default function Pledges({ params, user }) {
       <PageHead
         title={isAdmin ? "Pledges" : "My sevaks"}
         sub={isAdmin ? "Everyone who has offered Nitya Seva." : "Sevaks assigned to you for follow-up."}
+        actions={
+          isAdmin && (
+            <Link to="/deleted" className="pbtn pbtn-ghost pbtn-small">
+              Recently deleted
+            </Link>
+          )
+        }
       />
 
       <div className="tabs" role="tablist">

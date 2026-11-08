@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canTransition, statusAfterFollowup } from "../src/modules/pledges/pledges.rules.js";
+import { ObjectId } from "mongodb";
+import { canTransition, conflictsWithPayments, statusAfterFollowup, undoTarget } from "../src/modules/pledges/pledges.rules.js";
 
 describe("canTransition", () => {
   it("follows the lifecycle", () => {
@@ -38,5 +39,28 @@ describe("statusAfterFollowup", () => {
     expect(statusAfterFollowup("contacted", "no_answer")).toBeNull();
     expect(statusAfterFollowup("confirmed", "reached")).toBeNull();
     expect(statusAfterFollowup("confirmed", "confirmed")).toBeNull();
+  });
+});
+
+describe("undoTarget", () => {
+  const change = { from: "new", to: "contacted", by: new ObjectId(), at: new Date() } as const;
+
+  it("puts back the status from before the last change", () => {
+    expect(undoTarget({ status: "contacted", lastStatusChange: change })).toBe("new");
+  });
+
+  it("has nothing to undo once the status has moved on, or without a recorded change", () => {
+    expect(undoTarget({ status: "confirmed", lastStatusChange: change })).toBeNull();
+    expect(undoTarget({ status: "contacted" })).toBeNull();
+  });
+});
+
+describe("conflictsWithPayments", () => {
+  it("keeps a pledge with payments from going back to a never-confirmed status", () => {
+    expect(conflictsWithPayments("contacted", 1)).toBe(true);
+    expect(conflictsWithPayments("lost", 2)).toBe(true);
+    expect(conflictsWithPayments("cancelled", 1)).toBe(false);
+    expect(conflictsWithPayments("paused", 1)).toBe(false);
+    expect(conflictsWithPayments("new", 0)).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import Account from "./pages/Account";
 import ChangePassword from "./pages/ChangePassword";
 import Counter from "./pages/Counter";
 import Dashboard from "./pages/Dashboard";
+import Deleted from "./pages/Deleted";
 import Login from "./pages/Login";
 import Notifications from "./pages/Notifications";
 import PledgeDetail from "./pages/PledgeDetail";
@@ -135,6 +136,7 @@ function Page({ path, params, user, onUser }) {
   if (isAdmin && path === "/staff") return <Staff user={user} />;
   if (isAdmin && path === "/reports") return <Reports />;
   if (isAdmin && path === "/counter") return <Counter />;
+  if (isAdmin && path === "/deleted") return <Deleted params={params} />;
   return (
     <div className="p-card">
       <h1>Page not found</h1>

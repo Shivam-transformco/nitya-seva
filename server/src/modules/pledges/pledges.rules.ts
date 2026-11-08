@@ -1,4 +1,4 @@
-import type { FollowupOutcome, PledgeStatus } from "../../domain/types.js";
+import type { FollowupOutcome, PledgeDoc, PledgeStatus } from "../../domain/types.js";
 
 const TRANSITIONS: Record<PledgeStatus, PledgeStatus[]> = {
   new: ["contacted", "confirmed", "lost"],
@@ -15,6 +15,19 @@ export function canTransition(from: PledgeStatus, to: PledgeStatus): boolean {
 
 export function allowedNext(from: PledgeStatus): PledgeStatus[] {
   return TRANSITIONS[from];
+}
+
+/** Lost and cancelled pledges need no follow-up. */
+export const isClosed = (status: PledgeStatus) => status === "lost" || status === "cancelled";
+
+/** A pledge with payments recorded was confirmed at some point, so it can't go back to one of these. */
+const NEVER_PAID: PledgeStatus[] = ["new", "contacted", "lost"];
+export const conflictsWithPayments = (status: PledgeStatus, paymentCount: number) => paymentCount > 0 && NEVER_PAID.includes(status);
+
+/** The status "undo" would put back, or null when there's nothing to undo or the status has moved on since. */
+export function undoTarget(pledge: Pick<PledgeDoc, "status" | "lastStatusChange">): PledgeStatus | null {
+  const change = pledge.lastStatusChange;
+  return change && change.to === pledge.status ? change.from : null;
 }
 
 /** The status a pledge moves to after a follow-up with this outcome, or null to leave it unchanged. */

@@ -1,8 +1,8 @@
 import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
-import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, SevakDoc } from "../../domain/types.js";
+import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, SevakDoc, StatusChange } from "../../domain/types.js";
 import { endOfIstDay } from "../../lib/dates.js";
-import { badRequest, notFound } from "../../lib/errors.js";
+import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
 import * as followupsRepo from "../followups/followups.repository.js";
@@ -11,8 +11,8 @@ import * as paymentsRepo from "../payments/payments.repository.js";
 import * as sevaksRepo from "../sevaks/sevaks.repository.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as repo from "./pledges.repository.js";
-import { allowedNext, canTransition } from "./pledges.rules.js";
-import type { listPledgesQuery, paymentSetupBody } from "./pledges.schema.js";
+import { allowedNext, canTransition, conflictsWithPayments, isClosed, undoTarget } from "./pledges.rules.js";
+import type { editPledgeBody, editSevakBody, listPledgesQuery, paymentSetupBody } from "./pledges.schema.js";
 
 /** Follow-up devotees only see pledges assigned to them; for everyone else the pledge "doesn't exist". */
 export async function loadForActor(actor: Actor, id: ObjectId): Promise<PledgeDoc> {
@@ -27,7 +27,7 @@ async function withPeople(pledges: PledgeDoc[]) {
     usersRepo.list(),
   ]);
   const names = new Map(users.map((u) => [u._id.toHexString(), u.name]));
-  return pledges.map(({ source: _source, ...p }) => {
+  return pledges.map(({ source: _source, lastStatusChange: _change, ...p }) => {
     const sevak = sevaks.get(p.sevakId.toHexString());
     return {
       ...p,
@@ -64,24 +64,108 @@ export async function list(actor: Actor, q: z.infer<typeof listPledgesQuery>) {
 
 export async function detail(actor: Actor, id: ObjectId) {
   const pledge = await loadForActor(actor, id);
-  const [[enriched], followups, payments] = await Promise.all([
+  const [[enriched], followups, payments, users] = await Promise.all([
     withPeople([pledge]),
     followupsRepo.listForPledge(pledge._id),
     paymentsRepo.listForPledge(pledge._id),
+    pledge.lastStatusChange ? usersRepo.list() : Promise.resolve([]),
   ]);
-  return { ...enriched, source: pledge.source, allowedNextStatuses: allowedNext(pledge.status), followups, payments };
+  const change = pledge.lastStatusChange;
+  return {
+    ...enriched,
+    source: pledge.source,
+    allowedNextStatuses: allowedNext(pledge.status),
+    lastStatusChange: change
+      ? { ...change, byName: users.find((u) => u._id.equals(change.by))?.name ?? "Unknown" }
+      : null,
+    undoTo: undoTarget(pledge),
+    followups,
+    payments,
+  };
 }
 
-export async function updateStatus(actor: Actor, id: ObjectId, status: PledgeStatus, note?: string) {
+async function assertPaymentsAllow(pledge: PledgeDoc, status: PledgeStatus) {
+  if (conflictsWithPayments(status, await paymentsRepo.countForPledge(pledge._id))) {
+    throw badRequest(`This pledge has payments recorded, so it can't be ${status}. Delete the payments first if they were a mistake.`);
+  }
+}
+
+/** Snapshot that lets the change be undone. */
+const statusChange = (pledge: PledgeDoc, to: PledgeStatus, by: ObjectId, followupId?: ObjectId): StatusChange => ({
+  from: pledge.status,
+  to,
+  by,
+  at: new Date(),
+  ...(followupId ? { followupId } : {}),
+  ...(pledge.nextFollowUpAt ? { nextFollowUpAt: pledge.nextFollowUpAt } : {}),
+});
+
+export async function updateStatus(actor: Actor, id: ObjectId, status: PledgeStatus, note?: string, correction = false) {
+  if (correction && actor.role !== "admin") throw forbidden("Only admins can correct a status directly.");
   const pledge = await loadForActor(actor, id);
   if (pledge.status === status) return detail(actor, id);
-  if (!canTransition(pledge.status, status)) {
+  if (!correction && !canTransition(pledge.status, status)) {
     throw badRequest(`A ${pledge.status} pledge can't be marked ${status}.`, { allowed: allowedNext(pledge.status) });
   }
-  // Closed pledges no longer need a follow-up.
-  const closing = status === "lost" || status === "cancelled";
-  await repo.update(id, { status }, closing ? ["nextFollowUpAt"] : []);
-  await audit.record(actor.id, "pledge.status", "pledge", id, { from: pledge.status, to: status, note });
+  await assertPaymentsAllow(pledge, status);
+  await repo.update(id, { status, lastStatusChange: statusChange(pledge, status, actor.id) }, isClosed(status) ? ["nextFollowUpAt"] : []);
+  await audit.record(actor.id, correction ? "pledge.status_correct" : "pledge.status", "pledge", id, { from: pledge.status, to: status, note });
+  return detail(actor, id);
+}
+
+/** Puts back the status from before the most recent change (a misclick, or a follow-up logged with the wrong outcome). */
+export async function undoStatus(actor: Actor, id: ObjectId) {
+  const pledge = await loadForActor(actor, id);
+  const target = undoTarget(pledge);
+  if (!target) throw badRequest("There's no status change to undo. The status may have changed again since.");
+  await assertPaymentsAllow(pledge, target);
+  const set: Partial<PledgeDoc> = { status: target };
+  const unset: (keyof PledgeDoc)[] = ["lastStatusChange"];
+  const previousFollowUp = pledge.lastStatusChange?.nextFollowUpAt;
+  if (isClosed(target)) unset.push("nextFollowUpAt");
+  else if (previousFollowUp && !pledge.nextFollowUpAt) set.nextFollowUpAt = previousFollowUp;
+  await repo.update(id, set, unset);
+  await audit.record(actor.id, "pledge.status_undo", "pledge", id, { from: pledge.status, to: target });
+  return detail(actor, id);
+}
+
+export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof editPledgeBody>) {
+  const pledge = await loadForActor(actor, id);
+  const set: Partial<PledgeDoc> = {};
+  const unset: (keyof PledgeDoc)[] = [];
+  if (input.amount !== undefined) set.amount = input.amount;
+  if (input.seva !== undefined) set.seva = input.seva;
+  if (input.message !== undefined) set.message = input.message;
+  if (input.nextFollowUpAt === null) unset.push("nextFollowUpAt");
+  else if (input.nextFollowUpAt) {
+    if (isClosed(pledge.status)) throw badRequest(`A ${pledge.status} pledge doesn't need a follow-up.`);
+    set.nextFollowUpAt = input.nextFollowUpAt;
+  }
+  await repo.update(id, set, unset);
+  const changed = [...Object.keys(set), ...unset] as (keyof PledgeDoc)[];
+  await audit.record(actor.id, "pledge.edit", "pledge", id, {
+    from: Object.fromEntries(changed.map((k) => [k, pledge[k] ?? null])),
+    to: Object.fromEntries(changed.map((k) => [k, set[k] ?? null])),
+  });
+  return detail(actor, id);
+}
+
+/** Name, phone and email belong to the sevak, so the change shows on all of their pledges. */
+export async function editSevak(actor: Actor, id: ObjectId, input: z.infer<typeof editSevakBody>) {
+  const pledge = await loadForActor(actor, id);
+  const sevak = await sevaksRepo.findById(pledge.sevakId);
+  if (!sevak) throw notFound("Sevak");
+  if (input.phone && input.phone !== sevak.phone) {
+    const other = await sevaksRepo.findByPhone(input.phone);
+    if (other) throw conflict(`${input.phone} already belongs to ${other.name}. If they're the same person, mark one pledge as a duplicate.`);
+  }
+  const set = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<SevakDoc>;
+  await sevaksRepo.update(sevak._id, set);
+  await audit.record(actor.id, "sevak.edit", "sevak", sevak._id, {
+    pledgeId: id,
+    from: Object.fromEntries(Object.keys(set).map((k) => [k, sevak[k as keyof SevakDoc]])),
+    to: set,
+  });
   return detail(actor, id);
 }
 

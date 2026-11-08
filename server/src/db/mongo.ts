@@ -5,6 +5,7 @@ import type {
   CounterAdjustmentDoc,
   CounterDoc,
   CounterSettingsDoc,
+  DeletedItemDoc,
   FollowupDoc,
   LegacySubmissionDoc,
   NotificationDoc,
@@ -54,5 +55,6 @@ export const collections = {
   counterAdjustments: collection<CounterAdjustmentDoc>("counterAdjustments"),
   settings: collection<CounterSettingsDoc>("settings"),
   rateLimits: collection<RateLimitDoc>("rateLimits"),
+  deletedItems: collection<DeletedItemDoc>("deletedItems"),
   legacySubmissions: collection<LegacySubmissionDoc>("submissions"),
 };
