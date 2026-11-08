@@ -1,5 +1,7 @@
 import { pledgesCsvUrl, qs, useApi } from "../api";
 import { MANDATE_LABELS, METHOD_LABELS, MODE_LABELS, ROLE_LABELS, can, formatINR, monthLabel, plural } from "../format";
+import { CommittedTable, ThisMonth } from "../dues";
+import { Link } from "../router";
 import { Empty, ErrorNote, Loading, MaybeLink, PageHead } from "../ui";
 
 function PaymentModes({ linked }) {
@@ -78,22 +80,38 @@ export default function Reports({ user }) {
   const months = collections.data?.months ?? [];
   const peak = Math.max(1, ...months.map((m) => m.amount));
 
+  const seesAll = can(user, "pledges.viewAll");
   return (
     <>
       <PageHead
         title="Reports"
         actions={
-          can(user, "reports.export") && (
-            <a className="pbtn pbtn-ghost" href={pledgesCsvUrl}>
-              Download all pledges (CSV)
-            </a>
-          )
+          <>
+            {seesAll && (
+              <Link className="pbtn pbtn-ghost" to="/overdue">
+                Missed payments
+              </Link>
+            )}
+            {can(user, "payments.manage") && (
+              <Link className="pbtn pbtn-ghost" to="/statements">
+                Yearly statements
+              </Link>
+            )}
+            {can(user, "reports.export") && (
+              <a className="pbtn pbtn-ghost" href={pledgesCsvUrl}>
+                Download all pledges (CSV)
+              </a>
+            )}
+          </>
         }
       />
 
+      <ThisMonth linked={seesAll} />
+      <CommittedTable linked={seesAll} />
+
       <section className="p-card">
         <h2>Collections by month</h2>
-        <p className="p-muted">Payments recorded in the portal over the last 12 months.</p>
+        <p className="p-muted">Everything recorded in the portal over the last 12 months, including one-off and extra gifts.</p>
         <ErrorNote error={collections.error} />
         {!collections.data ? (
           collections.loading && <Loading />

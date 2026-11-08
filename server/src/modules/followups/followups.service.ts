@@ -8,8 +8,8 @@ import * as audit from "../audit/audit.service.js";
 import * as bin from "../bin/bin.repository.js";
 import * as paymentsRepo from "../payments/payments.repository.js";
 import * as pledgesRepo from "../pledges/pledges.repository.js";
-import { conflictsWithPayments, isClosed, statusAfterFollowup } from "../pledges/pledges.rules.js";
-import { loadForActor, loadToWork } from "../pledges/pledges.service.js";
+import { conflictsWithPayments, isClosed, scheduleOf, statusAfterFollowup } from "../pledges/pledges.rules.js";
+import { loadForActor, loadToWork, withSchedule } from "../pledges/pledges.service.js";
 import * as repo from "./followups.repository.js";
 import type { createFollowupBody } from "./followups.schema.js";
 
@@ -46,12 +46,14 @@ export async function create(actor: Actor, pledgeId: ObjectId, input: z.infer<ty
       at: followup.createdAt,
       followupId: followup._id,
       ...(pledge.nextFollowUpAt ? { nextFollowUpAt: pledge.nextFollowUpAt } : {}),
+      schedule: scheduleOf(pledge),
     };
   }
   if (input.nextFollowUpAt && !closed) set.nextFollowUpAt = input.nextFollowUpAt;
   // Without a new date the pledge drops off the "due" list instead of nagging forever.
   const unset: (keyof PledgeDoc)[] = input.nextFollowUpAt && !closed ? [] : ["nextFollowUpAt"];
   if (nextStatus && nextStatus !== "paused") unset.push("pausedUntil");
+  if (nextStatus) withSchedule(pledge, nextStatus, set, unset);
   const updated = await pledgesRepo.update(pledgeId, set, unset);
 
   await audit.record(actor.id, "followup.create", "pledge", pledgeId, {
@@ -97,6 +99,7 @@ export async function remove(actor: Actor, pledgeId: ObjectId, followupId: Objec
     if (!conflictsWithPayments(change.from, await paymentsRepo.countForPledge(pledgeId))) {
       set.status = change.from;
       unset.push("lastStatusChange");
+      withSchedule(pledge, change.from, set, unset, change.schedule);
       statusReverted = true;
       if (isClosed(change.from)) {
         delete set.nextFollowUpAt;

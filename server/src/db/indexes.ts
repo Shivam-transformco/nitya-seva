@@ -1,7 +1,7 @@
 import { collections } from "./mongo.js";
 
 export async function ensureIndexes(): Promise<void> {
-  const [users, sevaks, pledges, followups, payments, notifications, auditLogs, rateLimits, deletedItems] = await Promise.all([
+  const [users, sevaks, pledges, followups, payments, notifications, auditLogs, rateLimits, deletedItems, dueNotes] = await Promise.all([
     collections.users(),
     collections.sevaks(),
     collections.pledges(),
@@ -11,6 +11,7 @@ export async function ensureIndexes(): Promise<void> {
     collections.auditLogs(),
     collections.rateLimits(),
     collections.deletedItems(),
+    collections.dueNotes(),
   ]);
 
   await Promise.all([
@@ -27,6 +28,8 @@ export async function ensureIndexes(): Promise<void> {
     payments.createIndex({ pledgeId: 1, month: 1 }),
     payments.createIndex({ month: 1 }),
     payments.createIndex({ receiptNo: 1 }, { unique: true }),
+    payments.createIndex({ sevakId: 1, receivedAt: 1 }),
+    dueNotes.createIndex({ pledgeId: 1, month: 1 }, { unique: true }),
     notifications.createIndex({ userId: 1, readAt: 1, createdAt: -1 }),
     auditLogs.createIndex({ entity: 1, entityId: 1, createdAt: -1 }),
     auditLogs.createIndex({ createdAt: -1 }),

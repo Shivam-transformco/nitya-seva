@@ -1,11 +1,12 @@
 import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
 import { ASSIGNABLE_ROLES, can } from "../../domain/permissions.js";
-import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, SevakDoc, StatusChange } from "../../domain/types.js";
-import { endOfIstDay } from "../../lib/dates.js";
+import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, Schedule, SevakDoc, StatusChange } from "../../domain/types.js";
+import { endOfIstDay, istMonth } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
+import * as dues from "../dues/dues.ledgers.js";
 import * as followupsRepo from "../followups/followups.repository.js";
 import * as notifications from "../notifications/notifications.service.js";
 import * as paymentsRepo from "../payments/payments.repository.js";
@@ -20,6 +21,9 @@ import {
   monthlyEquivalent,
   originFilter,
   originOf,
+  scheduleAfter,
+  scheduleOf,
+  scheduleUpdate,
   undoTarget,
 } from "./pledges.rules.js";
 import type { createPledgeBody, editPledgeBody, editSevakBody, listPledgesQuery, paymentSetupBody } from "./pledges.schema.js";
@@ -87,20 +91,28 @@ export async function list(actor: Actor, q: z.infer<typeof listPledgesQuery>) {
   if (q.frequency) filter.frequency = q.frequency;
   if (q.q) filter.sevakId = { $in: await sevaksRepo.searchIds(q.q) };
   if (and.length) filter.$and = and;
+  if (q.overdue) filter._id = { $in: await dues.owingIds(filter) };
 
   const sort: Record<string, 1 | -1> =
     q.sort === "oldest" ? { createdAt: 1 } : q.sort === "nextFollowUp" ? { nextFollowUpAt: 1, createdAt: 1 } : { createdAt: -1 };
   const { items, total } = await repo.list(filter, { skip: (q.page - 1) * q.limit, limit: q.limit, sort });
-  return { items: await withPeople(items), total, page: q.page, limit: q.limit };
+  const [people, owing] = await Promise.all([withPeople(items), dues.owingFor(items)]);
+  return {
+    items: people.map((p) => ({ ...p, owing: owing.get(p._id.toHexString()) ?? null })),
+    total,
+    page: q.page,
+    limit: q.limit,
+  };
 }
 
 export async function detail(actor: Actor, id: ObjectId) {
   const pledge = await loadForActor(actor, id);
-  const [[enriched], followups, payments, users] = await Promise.all([
+  const [[enriched], followups, payments, users, ledger] = await Promise.all([
     withPeople([pledge]),
     followupsRepo.listForPledge(pledge._id),
     paymentsRepo.listForPledge(pledge._id),
     pledge.lastStatusChange ? usersRepo.list() : Promise.resolve([]),
+    pledge.flag ? Promise.resolve(null) : dues.forPledge(pledge),
   ]);
   const change = pledge.lastStatusChange;
   const assigned = isAssignee(actor, pledge);
@@ -120,6 +132,8 @@ export async function detail(actor: Actor, id: ObjectId) {
     },
     followups,
     payments,
+    /** What was due each month and what came; null when nothing is due (not confirmed yet, or not genuine). */
+    dues: ledger,
   };
 }
 
@@ -137,7 +151,15 @@ const statusChange = (pledge: PledgeDoc, to: PledgeStatus, by: ObjectId, followu
   at: new Date(),
   ...(followupId ? { followupId } : {}),
   ...(pledge.nextFollowUpAt ? { nextFollowUpAt: pledge.nextFollowUpAt } : {}),
+  schedule: scheduleOf(pledge),
 });
+
+/** Adds the schedule change for a move to `to` this month into a pledge update. */
+export function withSchedule(pledge: PledgeDoc, to: PledgeStatus, set: Partial<PledgeDoc>, unset: (keyof PledgeDoc)[], schedule?: Schedule) {
+  const s = scheduleUpdate(schedule ?? scheduleAfter(pledge, to, istMonth()));
+  Object.assign(set, s.set);
+  unset.push(...s.unset.filter((k) => !unset.includes(k)));
+}
 
 export async function updateStatus(
   actor: Actor,
@@ -155,7 +177,10 @@ export async function updateStatus(
 
   const set: Partial<PledgeDoc> = { status };
   const unset: (keyof PledgeDoc)[] = [];
-  if (pledge.status !== status) set.lastStatusChange = statusChange(pledge, status, actor.id);
+  if (pledge.status !== status) {
+    set.lastStatusChange = statusChange(pledge, status, actor.id);
+    withSchedule(pledge, status, set, unset);
+  }
   if (isClosed(status)) unset.push("nextFollowUpAt");
   if (status === "paused" && pausedUntil) {
     // The pause ending brings the pledge back onto its devotee's due list.
@@ -181,6 +206,7 @@ export async function undoStatus(actor: Actor, id: ObjectId) {
   const set: Partial<PledgeDoc> = { status: target };
   const unset: (keyof PledgeDoc)[] = ["lastStatusChange"];
   if (target !== "paused") unset.push("pausedUntil");
+  withSchedule(pledge, target, set, unset, pledge.lastStatusChange?.schedule);
   const previousFollowUp = pledge.lastStatusChange?.nextFollowUpAt;
   if (isClosed(target)) unset.push("nextFollowUpAt");
   else if (previousFollowUp && !pledge.nextFollowUpAt) set.nextFollowUpAt = previousFollowUp;
@@ -210,6 +236,10 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
   if (input.origin !== undefined) set.origin = input.origin;
   if (input.givingSince === null) unset.push("givingSince");
   else if (input.givingSince) set.givingSince = input.givingSince;
+  if (input.dueFrom === null) unset.push("dueFrom");
+  else if (input.dueFrom) set.dueFrom = input.dueFrom;
+  if (input.dueDay === null) unset.push("dueDay");
+  else if (input.dueDay) set.dueDay = input.dueDay;
   if (input.nextFollowUpAt === null) unset.push("nextFollowUpAt");
   else if (input.nextFollowUpAt) {
     if (isClosed(pledge.status)) throw badRequest(`A ${pledge.status} pledge doesn't need a follow-up.`);
@@ -339,6 +369,7 @@ export async function create(actor: Actor, input: z.infer<typeof createPledgeBod
     monthly: monthlyEquivalent(input.amount, input.frequency),
     origin: input.origin,
     ...(input.givingSince ? { givingSince: input.givingSince } : {}),
+    ...scheduleAfter({ givingSince: input.givingSince }, input.status, istMonth()),
     status: input.status,
     message: input.message,
     consent: true,

@@ -28,6 +28,8 @@ export const listPledgesQuery = pagination.extend({
   origin: z.enum(PLEDGE_ORIGINS).optional(),
   frequency: z.enum(FREQUENCIES).optional(),
   q: z.string().trim().min(2).max(100).optional(),
+  /** Only pledges with a gift overdue or missed. */
+  overdue: z.enum(["true"]).optional(),
   sort: z.enum(["newest", "oldest", "nextFollowUp"]).default("newest"),
 });
 
@@ -56,6 +58,10 @@ export const editPledgeBody = z
     origin: z.enum(PLEDGE_ORIGINS).optional(),
     /** null clears it. */
     givingSince: month.nullable().optional(),
+    /** The first month a gift is due; earlier months are never counted as missed. null clears it. */
+    dueFrom: month.nullable().optional(),
+    /** Day of the month the gift is due; after it, an unpaid gift is overdue. null = the mandate's debit day, or month end. */
+    dueDay: z.number().int().min(1).max(31).nullable().optional(),
     /** null clears it. */
     nextFollowUpAt: z.coerce.date().nullable().optional(),
   })

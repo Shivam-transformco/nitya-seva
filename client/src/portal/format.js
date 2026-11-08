@@ -80,6 +80,36 @@ export const perLabel = (frequency) => PER[frequency] ?? "/mo";
 const MONTHS_PER_GIFT = { Monthly: 1, Quarterly: 3, "Half-yearly": 6, Yearly: 12 };
 export const monthsBetweenGifts = (frequency) => MONTHS_PER_GIFT[frequency] ?? null;
 
+/** Why a month's gift didn't come; mirrors the server's list. */
+export const DUE_REASON_LABELS = {
+  travelling: "Travelling",
+  financial: "Money is tight",
+  bank_failure: "Bank debit failed",
+  pay_later: "Will pay later",
+  unreachable: "Couldn't reach them",
+  forgot: "Forgot",
+  other: "Other",
+};
+
+/** What happened to a month's gift. */
+export const DUE_STATE_LABELS = {
+  paid: "Paid",
+  partial: "Part paid",
+  excused: "Excused",
+  paused: "Paused",
+  due: "Still to come",
+  overdue: "Overdue",
+  missed: "Missed",
+};
+export const OWING_STATES = ["partial", "overdue", "missed"];
+
+/** "2025-26" for the financial year starting April `fy`. */
+export const fyLabel = (fy) => `${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
+export const currentFy = () => {
+  const [y, m] = currentMonth().split("-").map(Number);
+  return m >= 4 ? y : y - 1;
+};
+
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export const formatDate = (d) =>
@@ -113,6 +143,13 @@ export function dueLabel(d) {
 /** "YYYY-MM" for the current month in IST, matching how the server stores payment months. */
 export const currentMonth = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit" }).format(new Date());
+
+/** "YYYY-MM" plus `n` months. */
+export function addMonthsTo(month, n) {
+  const [y, m] = month.split("-").map(Number);
+  const i = y * 12 + (m - 1) + n;
+  return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+}
 
 export const monthLabel = (m) =>
   new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" });

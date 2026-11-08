@@ -27,6 +27,7 @@ import {
   todayInput,
   waLink,
 } from "../format";
+import { DuesCard } from "../dues";
 import { Link, navigate } from "../router";
 import { DueBadge, Empty, ErrorNote, Field, Loading, ModeBadge, OriginBadge, StatusBadge } from "../ui";
 
@@ -125,6 +126,7 @@ export default function PledgeDetail({ id, user }) {
               </p>
             </section>
           )}
+          <DuesCard pledge={p} canNote={access.payments} onChanged={reload} />
           <History pledge={p} user={user} onChanged={reload} />
         </div>
       </div>
@@ -149,6 +151,8 @@ const detailsForm = (p) => ({
   message: p.message ?? "",
   origin: p.origin,
   givingSince: p.givingSince ?? "",
+  dueFrom: p.dueFrom ?? "",
+  dueDay: p.dueDay ? String(p.dueDay) : "",
   nextFollowUpAt: localInput(p.nextFollowUpAt),
 });
 
@@ -178,6 +182,12 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
     if (form.message.trim() !== was.message.trim()) pledge.message = form.message.trim();
     if (form.origin !== was.origin) pledge.origin = form.origin;
     if (form.givingSince !== was.givingSince) pledge.givingSince = form.givingSince || null;
+    if (form.dueFrom !== was.dueFrom) pledge.dueFrom = form.dueFrom || null;
+    if (form.dueDay !== was.dueDay) {
+      const day = Number(form.dueDay);
+      if (form.dueDay && (!Number.isInteger(day) || day < 1 || day > 31)) return setError(new Error("The due day is a day of the month, 1 to 31."));
+      pledge.dueDay = form.dueDay ? day : null;
+    }
     if (form.nextFollowUpAt !== was.nextFollowUpAt) {
       pledge.nextFollowUpAt = form.nextFollowUpAt ? new Date(form.nextFollowUpAt).toISOString() : null;
     }
@@ -227,6 +237,16 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
           <Field label="Giving since (optional)" hint="For sevaks who gave before the portal.">
             <input type="month" max={currentMonth()} value={form.givingSince} onChange={set("givingSince")} />
           </Field>
+          {CAN_PAY.includes(p.status) && (
+            <>
+              <Field label="Payments due from" hint="Earlier months are never counted as missed.">
+                <input type="month" value={form.dueFrom} onChange={set("dueFrom")} />
+              </Field>
+              <Field label="Due on day" hint={`After this day a gift is overdue. Empty: ${p.paymentSetup?.mandate?.debitDay ? `the debit day (${p.paymentSetup.mandate.debitDay})` : "the month end"}.`}>
+                <input type="number" min="1" max="31" step="1" inputMode="numeric" value={form.dueDay} onChange={set("dueDay")} />
+              </Field>
+            </>
+          )}
           {canEditOrigin && (
             <Field label="Came from">
               <select value={form.origin} onChange={set("origin")}>
@@ -302,6 +322,15 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
           <>
             <dt>Giving since</dt>
             <dd>{monthLabel(p.givingSince)}</dd>
+          </>
+        )}
+        {p.dues && (
+          <>
+            <dt>Payments due</dt>
+            <dd>
+              From {monthLabel(p.dues.dueFrom)}, by day {p.dues.dueDay}
+              {!p.dueDay && <div className="p-muted">{p.paymentSetup?.mandate?.debitDay ? "The mandate's debit day" : "Month end"}</div>}
+            </dd>
           </>
         )}
         <dt>{p.origin === "website" || p.origin === "legacy" ? "Pledged on" : "Added on"}</dt>

@@ -6,6 +6,7 @@ import type {
   CounterDoc,
   CounterSettingsDoc,
   DeletedItemDoc,
+  DueNoteDoc,
   FollowupDoc,
   LegacySubmissionDoc,
   NotificationDoc,
@@ -56,5 +57,6 @@ export const collections = {
   settings: collection<CounterSettingsDoc>("settings"),
   rateLimits: collection<RateLimitDoc>("rateLimits"),
   deletedItems: collection<DeletedItemDoc>("deletedItems"),
+  dueNotes: collection<DueNoteDoc>("dueNotes"),
   legacySubmissions: collection<LegacySubmissionDoc>("submissions"),
 };

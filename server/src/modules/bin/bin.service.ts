@@ -5,6 +5,7 @@ import type { DeletedItemDoc } from "../../domain/types.js";
 import { badRequest, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
+import * as dueNotes from "../dues/dues.repository.js";
 import * as followupsRepo from "../followups/followups.repository.js";
 import * as paymentsRepo from "../payments/payments.repository.js";
 import * as pledgesRepo from "../pledges/pledges.repository.js";
@@ -108,5 +109,6 @@ export async function purge(actor: Actor, id: ObjectId) {
   const item = await repo.findById(id);
   if (!item) throw notFound("Deleted item");
   const removed = await repo.remove(item.kind === "pledge" ? { pledgeId: item.pledgeId } : { _id: id });
+  if (item.kind === "pledge") await dueNotes.removeForPledge(item.pledgeId);
   await audit.record(actor.id, `${item.kind}.purge`, "pledge", item.pledgeId, { itemId: item.itemId, entries: removed });
 }

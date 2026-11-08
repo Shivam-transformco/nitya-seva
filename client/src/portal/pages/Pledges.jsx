@@ -17,12 +17,13 @@ import {
 import { Link, navigate } from "../router";
 import { DueBadge, Empty, ErrorNote, Loading, ModeBadge, OriginBadge, PageHead, Pager, StatusBadge } from "../ui";
 
-const FILTER_KEYS = ["status", "assignedTo", "due", "flagged", "hidden", "mode", "mandate", "origin", "frequency", "q", "sort", "page"];
+const FILTER_KEYS = ["status", "assignedTo", "due", "overdue", "flagged", "hidden", "mode", "mandate", "origin", "frequency", "q", "sort", "page"];
 
-const CLEAR_VIEW = { due: "", flagged: "", hidden: "" };
+const CLEAR_VIEW = { due: "", overdue: "", flagged: "", hidden: "" };
 const VIEWS = [
   { id: "all", label: "All", params: {} },
   { id: "due", label: "Due today", params: { due: "true", sort: "nextFollowUp" } },
+  { id: "overdue", label: "Payment overdue", params: { overdue: "true" } },
   { id: "hidden", label: "Hidden from counter", params: { hidden: "true" }, adminOnly: true },
   { id: "flagged", label: "Not genuine", params: { flagged: "true" } },
 ];
@@ -57,6 +58,11 @@ export function PledgeRows({ items, showAssignee }) {
               {p.flag && <span className="badge badge-flag">{FLAG_LABELS[p.flag.reason]}</span>}
               {!p.flag && p.hiddenFromCounter && <span className="badge badge-hidden">Off counter</span>}
               {!p.flag && <DueBadge due={dueLabel(p.nextFollowUpAt)} />}
+              {p.owing && (
+                <span className="badge badge-due-missed">
+                  {p.owing.missedInRow === 1 ? "Payment overdue" : `${p.owing.missedInRow} payments missed`}
+                </span>
+              )}
             </span>
             <span className="row-side p-muted">
               {showAssignee && <span>{p.assignee ? p.assignee.name : "Unassigned"}</span>}
@@ -75,7 +81,16 @@ export default function Pledges({ params, user }) {
   const staff = useApi(isAdmin ? "/users" : null);
   const list = useApi(`/pledges${qs(filters)}`);
   const [search, setSearch] = useState(filters.q);
-  const view = filters.flagged === "true" ? "flagged" : filters.hidden === "true" ? "hidden" : filters.due === "true" ? "due" : "all";
+  const view =
+    filters.flagged === "true"
+      ? "flagged"
+      : filters.hidden === "true"
+        ? "hidden"
+        : filters.overdue === "true"
+          ? "overdue"
+          : filters.due === "true"
+            ? "due"
+            : "all";
 
   const update = (changes) => {
     const next = { ...filters, page: "", ...changes };

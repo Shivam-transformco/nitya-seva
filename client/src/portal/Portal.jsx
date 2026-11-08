@@ -10,12 +10,15 @@ import ChangePassword from "./pages/ChangePassword";
 import Counter from "./pages/Counter";
 import Dashboard from "./pages/Dashboard";
 import Deleted from "./pages/Deleted";
+import DuesMonth from "./pages/DuesMonth";
 import Login from "./pages/Login";
 import Notifications from "./pages/Notifications";
+import Overdue from "./pages/Overdue";
 import PledgeDetail from "./pages/PledgeDetail";
 import Pledges from "./pages/Pledges";
 import Reports from "./pages/Reports";
 import Staff from "./pages/Staff";
+import Statements, { Statement } from "./pages/Statements";
 
 const UNREAD_POLL_MS = 60_000;
 
@@ -81,7 +84,11 @@ function Shell({ user, onUser }) {
     },
     can(user, "staff.manage") && { to: "/staff", label: "Staff", match: (p) => p === "/staff" },
     can(user, "counter.manage") && { to: "/counter", label: "Counter", match: (p) => p === "/counter" },
-    hasDashboard && { to: "/reports", label: "Reports", match: (p) => p === "/reports" },
+    hasDashboard && {
+      to: "/reports",
+      label: "Reports",
+      match: (p) => p.startsWith("/reports") || p === "/overdue" || p.startsWith("/statements"),
+    },
     can(user, "audit.view") && { to: "/activity", label: "Activity", match: (p) => p === "/activity" },
   ].filter(Boolean);
 
@@ -134,9 +141,15 @@ function Shell({ user, onUser }) {
 
 function Page({ path, params, user, onUser }) {
   const pledgeId = path.match(/^\/pledges\/([a-f0-9]{24})$/i)?.[1];
+  const sevakId = path.match(/^\/statements\/([a-f0-9]{24})$/i)?.[1];
+  const dueMonth = path.match(/^\/reports\/month\/(\d{4}-(?:0[1-9]|1[0-2]))$/)?.[1];
   const worksPledges = user.role !== "viewer";
 
   if (pledgeId && worksPledges) return <PledgeDetail id={pledgeId} user={user} />;
+  if (dueMonth && worksPledges) return <DuesMonth key={dueMonth} month={dueMonth} />;
+  if (path === "/overdue" && worksPledges) return <Overdue user={user} />;
+  if (path === "/statements" && can(user, "payments.manage")) return <Statements params={params} />;
+  if (sevakId && can(user, "payments.manage")) return <Statement sevakId={sevakId} params={params} />;
   if (path === "/" && can(user, "reports.view")) return <Dashboard user={user} />;
   if ((path === "/" || path === "/pledges") && worksPledges) return <Pledges params={params} user={user} />;
   if (path === "/pledges/new" && can(user, "pledges.manage")) return <AddPledge user={user} />;

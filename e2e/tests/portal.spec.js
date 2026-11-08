@@ -567,6 +567,99 @@ test("the same person entered twice is merged into one sevak", async () => {
   expect(found.data.items.every((p) => p.sevak.name === "Old Sevak")).toBe(true);
 });
 
+const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).format(new Date());
+const monthsAgo = (n) => {
+  const [y, m] = thisMonth().split("-").map(Number);
+  const i = y * 12 + (m - 1) - n;
+  return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+};
+
+test("missed months show up with their reasons, in reports and the overdue list", async () => {
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("link", { name: "Add pledge" }).click();
+  const form = admin.getByRole("form", { name: "Add a pledge" });
+  await form.getByLabel("Name").fill("Late Sevak");
+  await form.getByLabel("Phone").fill("90000 00003");
+  await form.getByLabel("Came from").selectOption("pre_website");
+  await form.getByLabel("Amount (₹)").fill("500");
+  await form.getByLabel(/^Giving since/).fill(monthsAgo(3));
+  await form.getByRole("button", { name: "Save pledge" }).click();
+  await expect(admin.getByRole("heading", { name: "Late Sevak" })).toBeVisible();
+
+  // Three months gone with nothing paid; this month's isn't due until the month end.
+  const dues = admin.locator(".p-card", { has: admin.getByRole("heading", { name: "Payments by month" }) });
+  await expect(dues).toContainText("3 gifts in a row not paid · ₹1,500 owed in the last 12 months.");
+  const months = dues.locator(".dues-list > li");
+  await expect(months).toHaveCount(4);
+  await expect(months.first()).toContainText("Still to come");
+  await expect(months.nth(1)).toContainText("Missed");
+
+  await months.nth(3).getByRole("button", { name: "Add reason" }).click();
+  await months.nth(3).getByLabel("Why it didn't come").selectOption("travelling");
+  await months.nth(3).getByLabel("Note (optional)").fill("Back from Vrindavan next month");
+  await months.nth(3).getByLabel(/Excuse this month/).check();
+  await months.nth(3).getByRole("button", { name: "Save reason" }).click();
+  await expect(months.nth(3)).toContainText("Excused");
+  await expect(months.nth(3)).toContainText("Travelling · Back from Vrindavan next month (excused)");
+  await expect(dues).toContainText("2 gifts in a row not paid · ₹1,000 owed");
+  const pledgeId = admin.url().split("/").pop();
+
+  await nav(admin, "Pledges").click();
+  await admin.getByRole("tab", { name: "Payment overdue" }).click();
+  await expect(admin.getByRole("link", { name: /Late Sevak/ })).toContainText("2 payments missed");
+  await expect(admin.getByRole("link", { name: /Form Devotee/ })).toHaveCount(0);
+
+  await nav(admin, "Reports").click();
+  await expect(admin.getByRole("heading", { name: /This month so far/ })).toBeVisible();
+  await expect(admin.getByRole("table", { name: "Committed and collected by month" })).toBeVisible();
+  await admin.getByRole("link", { name: "Missed payments" }).click();
+  const late = admin.locator(".rows li", { hasText: "Late Sevak" });
+  await expect(late).toContainText("2 in a row");
+  await expect(late).toContainText("₹1,000 owed");
+  await expect(late).toContainText("last paid never");
+
+  await admin.goto(`/portal/#/reports/month/${monthsAgo(1)}`);
+  const row = admin.locator(".rows li", { hasText: "Late Sevak" });
+  await expect(row).toContainText("Missed");
+  await row.getByRole("button", { name: "Add reason" }).click();
+  await row.getByLabel("Why it didn't come").selectOption("bank_failure");
+  await row.getByLabel("Note (optional)").fill("Mandate bounced");
+  await row.getByRole("button", { name: "Save reason" }).click();
+  await expect(row).toContainText("Bank debit failed · Mandate bounced");
+
+  // The devotee only sees their own sevak: Radha's raised amount left this month part paid.
+  const own = (await (await devotee.request.get(`${API_URL}/api/dues/overdue`)).json()).data;
+  expect(own.map((r) => r.sevak.name)).toEqual([SEVAK.name]);
+  expect(own[0].months).toEqual([{ month: thisMonth(), state: "partial", expected: 1200, paid: 1100 }]);
+  expect((await devotee.request.put(`${API_URL}/api/pledges/${pledgeId}/dues/${monthsAgo(1)}`, { data: { reason: "forgot" } })).status()).toBe(404);
+  expect((await devotee.request.get(`${API_URL}/api/statements`)).status()).toBe(403);
+
+  // Setting a due day shows on the pledge.
+  await admin.goto(`/portal/#/pledges/${pledgeId}`);
+  const details = admin.locator(".p-card", { has: admin.getByRole("heading", { name: "Details" }) });
+  await details.getByRole("button", { name: "Edit" }).click();
+  await admin.getByRole("form", { name: "Edit details" }).getByLabel("Due on day").fill("10");
+  await admin.getByRole("form", { name: "Edit details" }).getByRole("button", { name: "Save details" }).click();
+  await expect(details).toContainText("by day 10");
+});
+
+test("yearly statements list each sevak's payments by financial year", async () => {
+  await nav(admin, "Reports").click();
+  await admin.getByRole("link", { name: "Yearly statements" }).click();
+  await expect(admin.getByRole("row", { name: new RegExp(SEVAK.name) })).toBeVisible();
+
+  await admin.getByLabel("Financial year").selectOption("2024");
+  const old = admin.getByRole("row", { name: /Old Sevak/ });
+  // April, July and October 2024; January 2024 belongs to the year before.
+  await expect(old).toContainText("₹9,000");
+  await old.getByRole("link", { name: "Old Sevak" }).click();
+  await expect(admin.getByRole("heading", { name: "Nitya Seva statement" })).toBeVisible();
+  await expect(admin.locator(".statement")).toContainText("Financial year 2024-25");
+  await expect(admin.getByRole("table", { name: "Payments" }).locator("tbody tr")).toHaveCount(4);
+  await expect(admin.locator("tr.total")).toContainText("₹9,000");
+  await expect(admin.getByRole("button", { name: "Print" })).toBeEnabled();
+});
+
 test("the daily job only runs with its secret", async ({ request }) => {
   expect((await request.get(`${API_URL}/api/cron/daily`)).status()).toBe(403);
   const res = await request.get(`${API_URL}/api/cron/daily`, {

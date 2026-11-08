@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { istMonth, MONTH_RE } from "../../lib/dates.js";
+import { addMonths, istMonth, MONTH_RE } from "../../lib/dates.js";
+import { badRequest } from "../../lib/errors.js";
 import { ok, query } from "../../lib/http.js";
 import { requirePermission } from "../../middleware/auth.js";
+import * as dues from "../dues/dues.service.js";
 import * as service from "./reports.service.js";
 
 const monthRange = z.object({
@@ -29,6 +31,18 @@ reportsRouter.get("/collections", async (req, res) => {
   const to = q.to ?? istMonth();
   const from = q.from ?? istMonth(new Date(Date.now() - 365 * DAY_MS));
   ok(res, { from, to, months: await service.monthlyCollections(from, to) });
+});
+
+reportsRouter.get("/dues", async (req, res) => {
+  const q = query(req, monthRange);
+  const to = q.to ?? istMonth();
+  const from = q.from ?? addMonths(to, -11);
+  if (from > to || addMonths(from, 36) < to) throw badRequest("Pick up to three years, with 'from' before 'to'.");
+  ok(res, await dues.monthly(from, to));
+});
+
+reportsRouter.get("/this-month", async (_req, res) => {
+  ok(res, await dues.thisMonth());
 });
 
 reportsRouter.get("/payment-modes", async (req, res) => {

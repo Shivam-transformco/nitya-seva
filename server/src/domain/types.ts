@@ -103,6 +103,14 @@ export interface PledgeDoc {
   givingSince?: string;
   /** Set while paused, when they said they'd resume. */
   pausedUntil?: Date;
+  /** "YYYY-MM": the first month a gift is due. Set when the pledge is confirmed. */
+  dueFrom?: string;
+  /** Day of the month the gift is due, 1–31. Unset: the mandate's debit day, else the month's last day. */
+  dueDay?: number;
+  /** Months it was paused, so they aren't counted as missed. `to` is unset while still paused. */
+  pauses?: Pause[];
+  /** "YYYY-MM": the month it was cancelled; nothing is due from then on. */
+  stoppedFrom?: string;
   status: PledgeStatus;
   assignedTo?: ObjectId;
   message: string;
@@ -124,6 +132,18 @@ export interface PledgeDoc {
   updatedAt: Date;
 }
 
+export interface Pause {
+  from: string;
+  to?: string;
+}
+
+/** Which months a gift is due, which follows the pledge's status. */
+export interface Schedule {
+  dueFrom?: string;
+  pauses?: Pause[];
+  stoppedFrom?: string;
+}
+
 export interface StatusChange {
   from: PledgeStatus;
   to: PledgeStatus;
@@ -133,6 +153,25 @@ export interface StatusChange {
   followupId?: ObjectId;
   /** The next follow-up before the change; closing a pledge clears it. */
   nextFollowUpAt?: Date;
+  /** The schedule before the change, put back by an undo. */
+  schedule?: Schedule;
+}
+
+/** Why a month's gift didn't come. */
+export const DUE_REASONS = ["travelling", "financial", "bank_failure", "pay_later", "unreachable", "forgot", "other"] as const;
+export type DueReason = (typeof DUE_REASONS)[number];
+
+/** Staff's note on one month of one pledge. Excused months aren't counted as missed. */
+export interface DueNoteDoc {
+  _id: ObjectId;
+  pledgeId: ObjectId;
+  sevakId: ObjectId;
+  month: string;
+  reason: DueReason;
+  note: string;
+  excused: boolean;
+  by: ObjectId;
+  at: Date;
 }
 
 export interface FollowupDoc {

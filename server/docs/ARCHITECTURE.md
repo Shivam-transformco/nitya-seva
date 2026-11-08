@@ -96,7 +96,9 @@ One sevak can have several pledges over time. Phone is the identity because it i
 - `origin`: `website | legacy | pre_website | google_form | staff`. Older pledges have none and read as `website`, or `legacy` when they have a `legacyId`. Staff add the last three by hand (`POST /api/pledges`), reusing the sevak when the phone is known, choosing whether it counts on the counter. `givingSince` (`YYYY-MM`) is when an earlier giver started.
 - `pausedUntil`: set when pausing with a resume date; it becomes `nextFollowUpAt`, and is cleared when the pledge leaves `paused`.
 
-`lastStatusChange: { from, to, by, at, followupId?, nextFollowUpAt? }` is the most recent status change, so it can be undone; see "Corrections" below.
+`lastStatusChange: { from, to, by, at, followupId?, nextFollowUpAt?, schedule? }` is the most recent status change, so it can be undone; see "Corrections" below. `schedule` is the dues schedule from before the change, which undo puts back.
+
+**Dues schedule.** `dueFrom?, dueDay?, pauses?: [{ from, to? }], stoppedFrom?` (months as `YYYY-MM`) say which months a gift was owed. Every status change updates them (`scheduleAfter` in `pledges.rules.ts`): confirming sets `dueFrom` (from `givingSince`, the mandate's first month, or this month) and closes an open pause; pausing opens one from this month; cancelling sets `stoppedFrom`; coming back after a cancellation records the gap as a pause; other statuses clear the schedule. Staff can set `dueFrom` and `dueDay` by hand. Pledges confirmed before schedules existed fall back to `givingSince`, the mandate's first month, their first payment or the month they were created.
 
 `paymentSetup` records how the sevak gives, independent of `status`:
 
@@ -133,6 +135,12 @@ Logging a follow-up updates the pledge's `lastContactAt` and `nextFollowUpAt`, a
 
 Receipt numbers come from an atomic counter in `counters`. Past giving is entered with `POST /api/pledges/:id/payments/bulk { fromMonth, toMonth, amount, method, reference }`: one payment per gift in the range (stepping by the pledge's frequency, up to 120), each with its own receipt, received at noon IST on the 1st. Months that already have a payment are skipped, so it's safe to repeat. Cancelled pledges accept payments too, for entering what they gave before stopping.
 
+### What was due (computed, `dues/`)
+Nothing is stored per month; `dues.rules.ts` works it out from the schedule and payments. Confirmed, paused and cancelled pledges that are genuine and have an amount owe a gift every month from `dueFrom`, stepping by frequency (one-time: once), up to this month or the month before `stoppedFrom`. A payment counts towards the gift whose period it falls in, and the amount owed is the one in force then (`amountHistory`). Each month is `paid`, `partial`, `excused` (a reason marked excused), `paused` (nothing owed), `missed` (an earlier month), or this month's `due` / `overdue`: overdue once India's date is past `dueDay`, else the mandate's debit day, else the month end. "In a row" counts owing months back from the latest; a paid, excused or paused month ends the run.
+
+### `dueNotes` (why a month's gift didn't come)
+`pledgeId, sevakId, month, reason: "travelling" | "financial" | "bank_failure" | "pay_later" | "unreachable" | "forgot" | "other", note, excused, by, at`, unique per `(pledgeId, month)`. Set by whoever may record payments for the pledge; audited. Moved with the sevak on a merge; removed when the pledge is deleted for good.
+
 ### `notifications`
 `userId, type, title, body, link, readAt?, createdAt`
 
@@ -163,7 +171,7 @@ Owners and admins can restore (`/portal/#/deleted`); only owners can delete for 
 - `submissions`: the old collection, kept read-only after migration.
 
 ### Indexes
-See `src/db/indexes.ts`. Main ones: `users.email` unique; `sevaks.phone` unique; `pledges` on `(status)`, `(assignedTo, status)`, `(nextFollowUpAt)`, `legacyId` unique sparse; `followups (pledgeId, createdAt)`; `payments (pledgeId, month)`, `receiptNo` unique; `notifications (userId, readAt, createdAt)`; `rateLimits.expiresAt` TTL.
+See `src/db/indexes.ts`. Main ones: `users.email` unique; `sevaks.phone` unique; `pledges` on `(status)`, `(assignedTo, status)`, `(nextFollowUpAt)`, `legacyId` unique sparse; `followups (pledgeId, createdAt)`; `payments (pledgeId, month)`, `(sevakId, receivedAt)`, `receiptNo` unique; `dueNotes (pledgeId, month)` unique; `notifications (userId, readAt, createdAt)`; `rateLimits.expiresAt` TTL.
 
 ## 6. API
 
@@ -189,10 +197,10 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 
 | Method | Path | Who |
 | --- | --- | --- |
-| GET | `/api/pledges?status=&assignedTo=&due=&mode=&mandate=&origin=&frequency=&q=&page=&limit=` | owner, admin, accounts: all; others: own. `mode` is a payment mode or `none` |
+| GET | `/api/pledges?status=&assignedTo=&due=&overdue=&mode=&mandate=&origin=&frequency=&q=&page=&limit=` | owner, admin, accounts: all; others: own. `mode` is a payment mode or `none`; `overdue=true` keeps those owing; each item has `owing` |
 | POST | `/api/pledges` | owner, admin; add by hand (earlier givers, Google Form, in person) |
-| GET | `/api/pledges/:id` | pledge with sevak, follow-ups, payments and `access` |
-| PATCH | `/api/pledges/:id` | working it: amount, frequency, seva, message, giving since, next follow-up (origin: owner, admin); audited |
+| GET | `/api/pledges/:id` | pledge with sevak, follow-ups, payments, `dues` (the last 24 months) and `access` |
+| PATCH | `/api/pledges/:id` | working it: amount, frequency, seva, message, giving since, due from, due day, next follow-up (origin: owner, admin); audited |
 | DELETE | `/api/pledges/:id` | owner, admin; moves it to the bin |
 | PATCH | `/api/pledges/:id/sevak` | working it: name, phone, email (shared by the sevak's pledges); a phone already in use is a 409 |
 | PATCH | `/api/pledges/:id/status` | working it; transition rules apply; `pausedUntil` with `paused`; `correction: true` (owner, admin) skips them |
@@ -210,6 +218,11 @@ All responses are JSON. Success: `{ ok: true, data }` (public endpoints keep the
 | GET | `/api/users` | owner, admin, accounts |
 | POST | `/api/users`, PATCH `/api/users/:id` | owner: any role; admin: accounts, viewer and follow-up only. Nobody changes their own role |
 | GET | `/api/reports/summary`, `/api/reports/collections?from=&to=`, `/api/reports/activity?from=&to=`, `/api/reports/payment-modes?from=&to=` | everyone but follow-up devotees |
+| GET | `/api/reports/dues?from=&to=` | everyone but follow-up devotees; committed, collected and not paid per month (totals only, up to 3 years) |
+| GET | `/api/reports/this-month` | everyone but follow-up devotees; expected, received, still to come, overdue |
+| GET | `/api/dues/month/:month`, `/api/dues/overdue` | all staff; each sevak's gift for a month, and those owing in the last 12 months (others: own pledges only) |
+| PUT/DELETE | `/api/pledges/:id/dues/:month { reason, note, excused }` | payments; why the month's gift didn't come |
+| GET | `/api/statements?fy=&q=`, `/api/statements/:sevakId?fy=` | owner, admin, accounts; payments by date received in the April–March year |
 | GET | `/api/reports/pledges.csv` | owner, admin, accounts |
 | GET | `/api/counter`… | owner, admin |
 | GET | `/api/audit?action=&page=` | owner |

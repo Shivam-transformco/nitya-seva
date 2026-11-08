@@ -278,4 +278,44 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .bar-cell { position: relative; min-width: 160px; padding: 2px 8px; }
 .bar { position: absolute; inset: 0 auto 0 0; background: var(--gold-soft); border-radius: 6px; opacity: 0.7; }
 .bar-cell strong { position: relative; }
+.ptable td.num, .ptable th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ptable tr.total td { font-weight: 700; color: var(--maroon); border-top: 2px solid var(--line); }
+
+/* What was due each month */
+.badge-due-paid { background: #e3f2e7; color: #1d5b33; }
+.badge-due-partial { background: #fdeedd; color: #9a4d07; }
+.badge-due-excused { background: #eef2f7; color: #234e7a; }
+.badge-due-paused { background: #f4eed8; color: #6f5a12; }
+.badge-due-due { background: #f1efec; color: #5b544d; }
+.badge-due-overdue, .badge-due-missed { background: #fbe9e7; color: #8a1c12; }
+.dues-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.dues-list li { display: grid; gap: 6px; padding: 10px 0; }
+.dues-list li + li { border-top: 1px solid var(--line); }
+.dues-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.dues-row strong { min-width: 84px; }
+.due-note { font-size: 0.9rem; }
+.due-month-note:not(:empty) { padding: 0 20px 14px; }
+.dues-owing { box-shadow: inset 3px 0 0 #d4553f; }
+.dues-list li.dues-owing { padding-left: 12px; }
+.reason-form { display: grid; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--cream); }
+.gap-cell { color: #8a1c12; }
+.forecast { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.forecast div { display: grid; gap: 2px; }
+.forecast strong { font-size: 1.5rem; color: var(--maroon); font-variant-numeric: tabular-nums; }
+.forecast .late strong { color: #b0261b; }
+.month-bar { height: 10px; border-radius: 999px; background: var(--cream-2); overflow: hidden; display: flex; }
+.month-bar span { display: block; height: 100%; }
+.month-bar .got { background: #1f8f4e; }
+.month-bar .late { background: #d4553f; }
+
+/* Statements print on their own, without the portal around them. */
+.statement { max-width: 760px; }
+.statement-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.statement-head img { width: 56px; height: 56px; }
+@media print {
+  .topbar, .crumbs, .no-print { display: none !important; }
+  .page { padding: 0; max-width: none; }
+  .p-card { border: 0; box-shadow: none; padding: 0; }
+  body { background: #fff; }
+}
 .creds code { font-size: 1.05rem; background: #fff; padding: 2px 8px; border-radius: 6px; }

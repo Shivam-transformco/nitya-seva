@@ -12,11 +12,13 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { binRouter } from "./modules/bin/bin.routes.js";
 import { counterRouter } from "./modules/counter/counter.routes.js";
 import { cronRouter } from "./modules/cron/cron.routes.js";
+import { duesRouter } from "./modules/dues/dues.routes.js";
 import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { pledgesRouter } from "./modules/pledges/pledges.routes.js";
 import { publicRouter } from "./modules/public/public.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
 import { sevaksRouter } from "./modules/sevaks/sevaks.routes.js";
+import { statementsRouter } from "./modules/statements/statements.routes.js";
 import { usersRouter } from "./modules/users/users.routes.js";
 
 /** Staff with a temporary password must change it before using anything else. */
@@ -52,6 +54,8 @@ export function createApp() {
   app.use("/api/counter", ...staff, requirePermission("counter.manage"), counterRouter);
   app.use("/api/deleted", ...staff, requirePermission("bin.manage"), binRouter);
   app.use("/api/audit", ...staff, requirePermission("audit.view"), auditRouter);
+  app.use("/api/dues", ...staff, duesRouter);
+  app.use("/api/statements", ...staff, requirePermission("payments.manage"), statementsRouter);
   app.use("/api/cron", cronRouter);
 
   app.use(notFoundHandler);

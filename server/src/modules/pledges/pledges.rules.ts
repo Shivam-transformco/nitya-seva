@@ -1,5 +1,6 @@
 import type { Filter } from "mongodb";
-import type { Frequency, FollowupOutcome, PledgeDoc, PledgeOrigin, PledgeStatus } from "../../domain/types.js";
+import type { Frequency, FollowupOutcome, Pause, PledgeDoc, PledgeOrigin, PledgeStatus, Schedule } from "../../domain/types.js";
+import { addMonths } from "../../lib/dates.js";
 
 const MONTHS_PER_GIFT: Record<Frequency, number | null> = {
   Monthly: 1,
@@ -59,6 +60,57 @@ export function undoTarget(pledge: Pick<PledgeDoc, "status" | "lastStatusChange"
   const change = pledge.lastStatusChange;
   return change && change.to === pledge.status ? change.from : null;
 }
+
+/**
+ * The pledge's schedule after it moves to `to` in `month`.
+ * - Confirming starts the dues (from "giving since" or the mandate's first month if set) and ends a pause;
+ *   coming back after a cancellation counts the gap as a pause.
+ * - Pausing opens a pause from this month; cancelling stops dues from this month.
+ * - Any other status (only reachable by correction once confirmed) means nothing is due.
+ */
+export function scheduleAfter(
+  p: Schedule & Pick<PledgeDoc, "givingSince" | "paymentSetup">,
+  to: PledgeStatus,
+  month: string,
+): Schedule {
+  if (to !== "confirmed" && to !== "paused" && to !== "cancelled") return {};
+  const dueFrom = p.dueFrom ?? p.givingSince ?? p.paymentSetup?.mandate?.startMonth ?? month;
+  const pauses: Pause[] = (p.pauses ?? []).map((x) => ({ ...x }));
+  const lastMonth = addMonths(month, -1);
+  const closeOpen = () => {
+    const open = pauses.findIndex((x) => !x.to);
+    if (open < 0) return;
+    if (lastMonth < pauses[open]!.from) pauses.splice(open, 1);
+    else pauses[open]!.to = lastMonth;
+  };
+  if (p.stoppedFrom && to !== "cancelled" && p.stoppedFrom <= lastMonth) pauses.push({ from: p.stoppedFrom, to: lastMonth });
+
+  if (to === "paused") {
+    if (!pauses.some((x) => !x.to)) pauses.push({ from: month });
+    return { dueFrom, pauses };
+  }
+  closeOpen();
+  return { dueFrom, pauses, ...(to === "cancelled" ? { stoppedFrom: p.stoppedFrom ?? month } : {}) };
+}
+
+/** The fields of a schedule as a `$set`/`$unset` pair; empty values are removed. */
+export function scheduleUpdate(s: Schedule): { set: Partial<PledgeDoc>; unset: (keyof PledgeDoc)[] } {
+  const set: Partial<PledgeDoc> = {};
+  const unset: (keyof PledgeDoc)[] = [];
+  if (s.dueFrom) set.dueFrom = s.dueFrom;
+  else unset.push("dueFrom");
+  if (s.pauses?.length) set.pauses = s.pauses;
+  else unset.push("pauses");
+  if (s.stoppedFrom) set.stoppedFrom = s.stoppedFrom;
+  else unset.push("stoppedFrom");
+  return { set, unset };
+}
+
+export const scheduleOf = (p: Schedule): Schedule => ({
+  ...(p.dueFrom ? { dueFrom: p.dueFrom } : {}),
+  ...(p.pauses?.length ? { pauses: p.pauses } : {}),
+  ...(p.stoppedFrom ? { stoppedFrom: p.stoppedFrom } : {}),
+});
 
 /** The status a pledge moves to after a follow-up with this outcome, or null to leave it unchanged. */
 export function statusAfterFollowup(current: PledgeStatus, outcome: FollowupOutcome): PledgeStatus | null {

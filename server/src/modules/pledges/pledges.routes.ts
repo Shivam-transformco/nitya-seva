@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, idParam, ok, query } from "../../lib/http.js";
 import { actorOf, requirePermission } from "../../middleware/auth.js";
 import * as bin from "../bin/bin.service.js";
+import { pledgeDuesRouter } from "../dues/dues.routes.js";
 import { followupsRouter } from "../followups/followups.routes.js";
 import { paymentsRouter } from "../payments/payments.routes.js";
 import {
@@ -80,3 +81,4 @@ pledgesRouter.delete("/:id/payment-setup", async (req, res) => {
 
 pledgesRouter.use("/:id/followups", followupsRouter);
 pledgesRouter.use("/:id/payments", paymentsRouter);
+pledgesRouter.use("/:id/dues", pledgeDuesRouter);

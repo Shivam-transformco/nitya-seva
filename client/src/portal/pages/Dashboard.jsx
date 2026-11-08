@@ -1,5 +1,6 @@
 import { useApi } from "../api";
 import { STATUSES, STATUS_LABELS, can, formatINR, monthLabel, plural } from "../format";
+import { ThisMonth } from "../dues";
 import { Link } from "../router";
 import { ErrorNote, Loading, MaybeLink, PageHead } from "../ui";
 import { PledgeRows } from "./Pledges";
@@ -40,6 +41,8 @@ export default function Dashboard({ user }) {
               <span className="p-muted">new or contacted, not assigned</span>
             </MaybeLink>
           </div>
+
+          <ThisMonth linked={seesAll} />
 
           <section className="p-card">
             <div className="p-card-head">

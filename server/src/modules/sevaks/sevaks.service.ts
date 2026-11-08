@@ -34,17 +34,19 @@ export async function merge(actor: Actor, intoId: ObjectId, fromId: ObjectId) {
   if (!into || !from) throw notFound("Sevak");
 
   const moved = { sevakId: intoId };
-  const [pledges, followups, payments, deletedItems] = await Promise.all([
+  const [pledges, followups, payments, deletedItems, dueNotes] = await Promise.all([
     collections.pledges(),
     collections.followups(),
     collections.payments(),
     collections.deletedItems(),
+    collections.dueNotes(),
   ]);
   const [p, f, pay] = await Promise.all([
     pledges.updateMany({ sevakId: fromId }, { $set: moved }),
     followups.updateMany({ sevakId: fromId }, { $set: moved }),
     payments.updateMany({ sevakId: fromId }, { $set: moved }),
     deletedItems.updateMany({ sevakId: fromId }, { $set: moved }),
+    dueNotes.updateMany({ sevakId: fromId }, { $set: moved }),
   ]);
 
   const otherPhones = [...new Set([...(into.otherPhones ?? []), from.phone, ...(from.otherPhones ?? [])])].filter((n) => n !== into.phone);
