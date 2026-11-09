@@ -2,7 +2,7 @@ import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
 import { ASSIGNABLE_ROLES, can } from "../../domain/permissions.js";
 import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, Schedule, SevakDoc, StatusChange } from "../../domain/types.js";
-import { endOfIstDay, istMonth, monthName, startOfIstMonth } from "../../lib/dates.js";
+import { endOfIstDay, istMonth, monthName } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
@@ -16,6 +16,7 @@ import * as repo from "./pledges.repository.js";
 import {
   DATED_STATUSES,
   allowedNext,
+  amountHistoryFrom,
   canTransition,
   conflictsWithPayments,
   isClosed,
@@ -245,14 +246,9 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
     Object.assign(set, { amount, frequency, monthly: monthlyEquivalent(amount, frequency) });
     // A ₹0 amount was never pledged, just not known yet.
     if (pledge.amount > 0 && input.amountChange === "from_now") {
-      const history = pledge.amountHistory ?? [];
-      const previous = history.at(-1);
-      if (input.amountFrom && input.amountFrom > istMonth()) throw badRequest("The new amount can start this month at the latest.");
-      if (input.amountFrom && previous && input.amountFrom <= istMonth(previous.until)) {
-        throw badRequest(`The amount last changed in ${monthName(istMonth(previous.until))}; the new one has to start after that.`);
-      }
-      const until = input.amountFrom ? startOfIstMonth(input.amountFrom) : new Date();
-      set.amountHistory = [...history, { amount: pledge.amount, frequency: pledge.frequency, until, by: actor.id }];
+      const from = input.amountFrom ?? istMonth();
+      if (from > istMonth()) throw badRequest("The new amount can start this month at the latest.");
+      set.amountHistory = amountHistoryFrom(pledge.amountHistory ?? [], { amount: pledge.amount, frequency: pledge.frequency }, from, actor.id);
     }
   }
   if (input.seva !== undefined) set.seva = input.seva;

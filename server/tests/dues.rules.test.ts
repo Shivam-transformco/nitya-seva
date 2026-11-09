@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ObjectId } from "mongodb";
 import { addMonths, daysInMonth, financialYear, financialYearOf, monthsBetween } from "../src/lib/dates.js";
-import { lastScheduledMonth, scheduleAfter, scheduleUpdate } from "../src/modules/pledges/pledges.rules.js";
+import { amountHistoryFrom, lastScheduledMonth, scheduleAfter, scheduleUpdate } from "../src/modules/pledges/pledges.rules.js";
 import { amountFor, dueDayOf, ledger, missedInRow, owedIn, scheduleFromHistory, totalsFor, unpaidMonths, type LedgerPledge } from "../src/modules/dues/dues.rules.js";
 
 const pledge = (p: Partial<LedgerPledge> = {}): LedgerPledge => ({
@@ -136,6 +136,28 @@ describe("ledger", () => {
     const p = pledge({ amount: 2000, amountHistory: [{ amount: 1000, frequency: "Monthly", until: new Date("2026-03-10T06:00:00Z"), by: new ObjectId() }] });
     expect(amountFor(p, "2026-02")).toBe(1000);
     expect(amountFor(p, "2026-03")).toBe(2000);
+  });
+
+  it("records a new amount from a chosen month, replacing anything recorded from then", () => {
+    const by = new ObjectId();
+    const ist = (m: string) => new Date(`${m}-01T00:00:00+05:30`);
+    const monthly = { frequency: "Monthly" as const };
+    const amounts = (h: { amount: number; until: Date }[]) => h.map((x) => `${x.amount}<${x.until.toISOString().slice(0, 10)}`);
+    // Saved at ₹0, set to ₹2,100 later the same day, now changed from this month: the ₹0 is dropped.
+    const zero = [{ amount: 0, ...monthly, until: new Date("2026-11-08T13:07:50Z"), by }];
+    const once = amountHistoryFrom(zero, { amount: 2100, ...monthly }, "2026-11", by);
+    expect(once).toEqual([{ amount: 2100, ...monthly, until: ist("2026-11"), by }]);
+    // Changed again from the same month: the ₹2,100 before it stays as it was.
+    expect(amountHistoryFrom(once, { amount: 2500, ...monthly }, "2026-11", by)).toEqual(once);
+    // From an earlier month: the earlier amount now ends there.
+    expect(amounts(amountHistoryFrom(once, { amount: 2500, ...monthly }, "2026-08", by))).toEqual([`2100<${ist("2026-08").toISOString().slice(0, 10)}`]);
+    const two = [
+      { amount: 1000, ...monthly, until: ist("2026-03"), by },
+      { amount: 1500, ...monthly, until: ist("2026-07"), by },
+    ];
+    expect(amountHistoryFrom(two, { amount: 2000, ...monthly }, "2026-05", by).map((x) => x.amount)).toEqual([1000, 1500]);
+    expect(amountHistoryFrom(two, { amount: 2000, ...monthly }, "2026-02", by).map((x) => x.amount)).toEqual([1000]);
+    expect(amountHistoryFrom(two, { amount: 2000, ...monthly }, "2026-09", by).map((x) => x.amount)).toEqual([1000, 1500, 2000]);
   });
 
   it("treats an earlier ₹0 amount as not known yet, not as nothing owed", () => {

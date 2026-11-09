@@ -674,10 +674,13 @@ test("missed months show up with their reasons, in reports and the overdue list"
   const expectedIn = Object.fromEntries((await raised.json()).data.dues.months.map((m) => [m.month, m.expected]));
   expect(expectedIn[monthsAgo(1)]).toBe(600);
   expect(expectedIn[monthsAgo(2)]).toBe(550);
-  const tooEarly = await admin.request.patch(`${API_URL}/api/pledges/${pledgeId}`, {
+  // Changing again from an earlier month replaces what was recorded from then on.
+  const earlier = await admin.request.patch(`${API_URL}/api/pledges/${pledgeId}`, {
     data: { amount: 700, amountChange: "from_now", amountFrom: monthsAgo(2) },
   });
-  expect(tooEarly.status()).toBe(400);
+  expect(earlier.ok()).toBe(true);
+  const nowExpected = Object.fromEntries((await earlier.json()).data.dues.months.map((m) => [m.month, m.expected]));
+  expect([nowExpected[monthsAgo(3)], nowExpected[monthsAgo(2)], nowExpected[monthsAgo(1)]]).toEqual([550, 700, 700]);
 
   // A pause that started last month: last month's payment still counts (₹500 of the ₹600 now), this month isn't due.
   const status = (data) => admin.request.patch(`${API_URL}/api/pledges/${pledgeId}/status`, { data });

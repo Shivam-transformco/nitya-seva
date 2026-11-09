@@ -1,6 +1,6 @@
 import type { Filter } from "mongodb";
 import type { Frequency, FollowupOutcome, Pause, PledgeDoc, PledgeOrigin, PledgeStatus, Schedule } from "../../domain/types.js";
-import { addMonths } from "../../lib/dates.js";
+import { addMonths, istMonth, startOfIstMonth } from "../../lib/dates.js";
 
 const MONTHS_PER_GIFT: Record<Frequency, number | null> = {
   Monthly: 1,
@@ -91,6 +91,33 @@ export function scheduleAfter(
   }
   closeOpen();
   return { dueFrom, pauses, ...(to === "cancelled" ? { stoppedFrom: p.stoppedFrom ?? month } : {}) };
+}
+
+type AmountEntry = NonNullable<PledgeDoc["amountHistory"]>[number];
+
+/**
+ * The amount history once the amount changes from `from` ("YYYY-MM") on: earlier months keep what
+ * they had, anything recorded from `from` on is replaced. ₹0 entries (amount not known yet) are dropped.
+ */
+export function amountHistoryFrom(
+  history: AmountEntry[],
+  current: Pick<AmountEntry, "amount" | "frequency">,
+  from: string,
+  by: AmountEntry["by"],
+): AmountEntry[] {
+  const fromDate = startOfIstMonth(from);
+  const out: AmountEntry[] = [];
+  let start: string | undefined;
+  for (const h of [...history.filter((x) => x.amount > 0), { ...current, until: new Date(Date.UTC(9999, 0)), by }]) {
+    const end = istMonth(h.until);
+    if (end <= from) out.push(h);
+    else {
+      if (start === undefined || start < from) out.push({ ...h, until: fromDate });
+      break;
+    }
+    start = end;
+  }
+  return out;
 }
 
 /** Statuses that start, pause or stop dues, so they can take effect from an earlier month. */
