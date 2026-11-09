@@ -42,6 +42,8 @@ export const updateStatusBody = z.object({
   correction: z.boolean().default(false),
   /** With "paused": when they said they'd resume. */
   pausedUntil: futureDate.optional(),
+  /** With "confirmed", "paused" or "cancelled": the month it took effect, if earlier than this one. */
+  from: z.string().regex(MONTH_RE, "must look like 2026-08").optional(),
 });
 
 /** 0 means they haven't decided yet (common for Google Form responses). */

@@ -93,6 +93,15 @@ export function scheduleAfter(
   return { dueFrom, pauses, ...(to === "cancelled" ? { stoppedFrom: p.stoppedFrom ?? month } : {}) };
 }
 
+/** Statuses that start, pause or stop dues, so they can take effect from an earlier month. */
+export const DATED_STATUSES: readonly PledgeStatus[] = ["confirmed", "paused", "cancelled"];
+
+/** The latest month the schedule already records; a backdated status change can't start before it. */
+export function lastScheduledMonth(s: Schedule): string | undefined {
+  const months = [s.dueFrom, s.stoppedFrom, ...(s.pauses ?? []).flatMap((x) => [x.from, x.to])].filter((m): m is string => Boolean(m));
+  return months.sort().at(-1);
+}
+
 /** The fields of a schedule as a `$set`/`$unset` pair; empty values are removed. */
 export function scheduleUpdate(s: Schedule): { set: Partial<PledgeDoc>; unset: (keyof PledgeDoc)[] } {
   const set: Partial<PledgeDoc> = {};

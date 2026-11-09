@@ -24,6 +24,12 @@ export function startOfIstMonth(month: string): Date {
   return new Date(Date.UTC(y, m - 1, 1) - IST_OFFSET_MS);
 }
 
+/** "Aug 2026" for "2026-08". */
+export function monthName(month: string): string {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** "YYYY-MM" plus `n` months (n may be negative). */

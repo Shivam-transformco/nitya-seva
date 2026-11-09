@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ObjectId } from "mongodb";
 import { addMonths, daysInMonth, financialYear, financialYearOf, monthsBetween } from "../src/lib/dates.js";
-import { scheduleAfter, scheduleUpdate } from "../src/modules/pledges/pledges.rules.js";
+import { lastScheduledMonth, scheduleAfter, scheduleUpdate } from "../src/modules/pledges/pledges.rules.js";
 import { amountFor, dueDayOf, ledger, missedInRow, owedIn, scheduleFromHistory, totalsFor, unpaidMonths, type LedgerPledge } from "../src/modules/dues/dues.rules.js";
 
 const pledge = (p: Partial<LedgerPledge> = {}): LedgerPledge => ({
@@ -53,6 +53,12 @@ describe("scheduleAfter", () => {
     const back = scheduleAfter(cancelled, "confirmed", "2026-07");
     expect(back).toEqual({ dueFrom: "2026-01", pauses: [{ from: "2026-03", to: "2026-06" }] });
     expect(scheduleUpdate(back).unset).toContain("stoppedFrom");
+  });
+
+  it("knows the latest month a schedule records", () => {
+    expect(lastScheduledMonth({})).toBeUndefined();
+    expect(lastScheduledMonth({ dueFrom: "2026-01", pauses: [{ from: "2026-03", to: "2026-05" }] })).toBe("2026-05");
+    expect(lastScheduledMonth({ dueFrom: "2026-01", pauses: [], stoppedFrom: "2026-08" })).toBe("2026-08");
   });
 
   it("clears the schedule for statuses with nothing due", () => {

@@ -161,6 +161,8 @@ const detailsForm = (p) => ({
 });
 
 const CLOSED = ["lost", "cancelled"];
+/** Statuses that start, pause or stop dues, and so can take effect from an earlier month. */
+const DATED = ["confirmed", "paused", "cancelled"];
 
 function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
   const [editing, setEditing] = useState(false);
@@ -444,7 +446,10 @@ function StatusCard({ pledge, canCorrect, onChanged }) {
   const [note, setNote] = useState("");
   const [correctTo, setCorrectTo] = useState("");
   const [pausedUntil, setPausedUntil] = useState("");
+  const [from, setFrom] = useState(currentMonth());
   const canPause = pledge.allowedNextStatuses.includes("paused") || (canCorrect && correctTo === "paused");
+  const dated = [...new Set([...pledge.allowedNextStatuses, ...(canCorrect && correctTo ? [correctTo] : [])])].filter((s) => DATED.includes(s));
+  const datedLabel = dated.map((s, i) => (i ? STATUS_LABELS[s].toLowerCase() : STATUS_LABELS[s])).join(" or ");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const change = pledge.lastStatusChange;
@@ -457,6 +462,7 @@ function StatusCard({ pledge, canCorrect, onChanged }) {
       setNote("");
       setCorrectTo("");
       setPausedUntil("");
+      setFrom(currentMonth());
       onChanged();
     } catch (err) {
       setError(err);
@@ -474,6 +480,7 @@ function StatusCard({ pledge, canCorrect, onChanged }) {
           note: note.trim() || undefined,
           correction,
           ...(status === "paused" && pausedUntil && { pausedUntil: new Date(`${pausedUntil}T09:00:00+05:30`).toISOString() }),
+          ...(DATED.includes(status) && from && { from }),
         },
       }),
     );
@@ -503,6 +510,11 @@ function StatusCard({ pledge, canCorrect, onChanged }) {
       <Field label="Reason (optional)">
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. travelling for two months" />
       </Field>
+      {dated.length > 0 && (
+        <Field label={`${datedLabel} from`} hint="Change it if this happened in an earlier month; dues follow from that month.">
+          <input type="month" max={currentMonth()} required value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+      )}
       {canPause && (
         <Field label="If pausing: resume on (optional)" hint="They come back on the due list that morning.">
           <input type="date" min={todayInput()} value={pausedUntil} onChange={(e) => setPausedUntil(e.target.value)} />

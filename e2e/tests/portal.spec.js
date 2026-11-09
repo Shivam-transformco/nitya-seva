@@ -678,6 +678,15 @@ test("missed months show up with their reasons, in reports and the overdue list"
     data: { amount: 700, amountChange: "from_now", amountFrom: monthsAgo(2) },
   });
   expect(tooEarly.status()).toBe(400);
+
+  // A pause that started last month: last month's payment still counts (₹500 of the ₹600 now), this month isn't due.
+  const status = (data) => admin.request.patch(`${API_URL}/api/pledges/${pledgeId}/status`, { data });
+  expect((await status({ status: "paused", from: monthsAgo(-1) })).status()).toBe(400);
+  expect((await status({ status: "paused", from: monthsAgo(4) })).status()).toBe(400);
+  const paused = await status({ status: "paused", from: monthsAgo(1) });
+  expect(paused.ok()).toBe(true);
+  const stateIn = Object.fromEntries((await paused.json()).data.dues.months.map((m) => [m.month, m.state]));
+  expect(stateIn).toMatchObject({ [monthsAgo(1)]: "partial", [thisMonth()]: "paused", [monthsAgo(2)]: "missed" });
 });
 
 test("yearly statements list each sevak's payments by financial year", async () => {

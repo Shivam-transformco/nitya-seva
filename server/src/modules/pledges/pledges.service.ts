@@ -2,7 +2,7 @@ import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
 import { ASSIGNABLE_ROLES, can } from "../../domain/permissions.js";
 import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, Schedule, SevakDoc, StatusChange } from "../../domain/types.js";
-import { endOfIstDay, istMonth, startOfIstMonth } from "../../lib/dates.js";
+import { endOfIstDay, istMonth, monthName, startOfIstMonth } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
@@ -14,10 +14,12 @@ import * as sevaksRepo from "../sevaks/sevaks.repository.js";
 import * as usersRepo from "../users/users.repository.js";
 import * as repo from "./pledges.repository.js";
 import {
+  DATED_STATUSES,
   allowedNext,
   canTransition,
   conflictsWithPayments,
   isClosed,
+  lastScheduledMonth,
   monthlyEquivalent,
   originFilter,
   originOf,
@@ -155,8 +157,15 @@ const statusChange = (pledge: PledgeDoc, to: PledgeStatus, by: ObjectId, followu
 });
 
 /** Adds the schedule change for a move to `to` this month into a pledge update. */
-export function withSchedule(pledge: PledgeDoc, to: PledgeStatus, set: Partial<PledgeDoc>, unset: (keyof PledgeDoc)[], schedule?: Schedule) {
-  const s = scheduleUpdate(schedule ?? scheduleAfter(pledge, to, istMonth()));
+export function withSchedule(
+  pledge: PledgeDoc,
+  to: PledgeStatus,
+  set: Partial<PledgeDoc>,
+  unset: (keyof PledgeDoc)[],
+  schedule?: Schedule,
+  month = istMonth(),
+) {
+  const s = scheduleUpdate(schedule ?? scheduleAfter(pledge, to, month));
   Object.assign(set, s.set);
   unset.push(...s.unset.filter((k) => !unset.includes(k)));
 }
@@ -164,7 +173,7 @@ export function withSchedule(pledge: PledgeDoc, to: PledgeStatus, set: Partial<P
 export async function updateStatus(
   actor: Actor,
   id: ObjectId,
-  input: { status: PledgeStatus; note?: string; correction?: boolean; pausedUntil?: Date },
+  input: { status: PledgeStatus; note?: string; correction?: boolean; pausedUntil?: Date; from?: string },
 ) {
   const { status, note, correction = false, pausedUntil } = input;
   if (correction && !can(actor.role, "pledges.manage")) throw forbidden("Only admins can correct a status directly.");
@@ -174,12 +183,18 @@ export async function updateStatus(
     throw badRequest(`A ${pledge.status} pledge can't be marked ${status}.`, { allowed: allowedNext(pledge.status) });
   }
   await assertPaymentsAllow(pledge, status);
+  const from = input.from && DATED_STATUSES.includes(status) ? input.from : undefined;
+  if (from && from > istMonth()) throw badRequest("The month can't be in the future.");
+  const earliest = lastScheduledMonth(pledge);
+  if (from && earliest && from < earliest) {
+    throw badRequest(`This pledge's dues already run to ${monthName(earliest)}; choose that month or later.`);
+  }
 
   const set: Partial<PledgeDoc> = { status };
   const unset: (keyof PledgeDoc)[] = [];
   if (pledge.status !== status) {
     set.lastStatusChange = statusChange(pledge, status, actor.id);
-    withSchedule(pledge, status, set, unset);
+    withSchedule(pledge, status, set, unset, undefined, from);
   }
   if (isClosed(status)) unset.push("nextFollowUpAt");
   if (status === "paused" && pausedUntil) {
@@ -193,6 +208,7 @@ export async function updateStatus(
     to: status,
     note,
     ...(pausedUntil ? { pausedUntil } : {}),
+    ...(from ? { from } : {}),
   });
   return detail(actor, id);
 }
@@ -233,7 +249,7 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
       const previous = history.at(-1);
       if (input.amountFrom && input.amountFrom > istMonth()) throw badRequest("The new amount can start this month at the latest.");
       if (input.amountFrom && previous && input.amountFrom <= istMonth(previous.until)) {
-        throw badRequest(`The amount last changed in ${istMonth(previous.until)}; the new one has to start after that.`);
+        throw badRequest(`The amount last changed in ${monthName(istMonth(previous.until))}; the new one has to start after that.`);
       }
       const until = input.amountFrom ? startOfIstMonth(input.amountFrom) : new Date();
       set.amountHistory = [...history, { amount: pledge.amount, frequency: pledge.frequency, until, by: actor.id }];
