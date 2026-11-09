@@ -2,7 +2,7 @@ import type { Filter, ObjectId } from "mongodb";
 import type { z } from "zod";
 import { ASSIGNABLE_ROLES, can } from "../../domain/permissions.js";
 import type { PaymentSetup, PledgeDoc, PledgeFlagReason, PledgeStatus, Schedule, SevakDoc, StatusChange } from "../../domain/types.js";
-import { endOfIstDay, istMonth } from "../../lib/dates.js";
+import { endOfIstDay, istMonth, startOfIstMonth } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { Actor } from "../../middleware/auth.js";
 import * as audit from "../audit/audit.service.js";
@@ -224,14 +224,19 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
   const unset: (keyof PledgeDoc)[] = [];
   const amount = input.amount ?? pledge.amount;
   const frequency = input.frequency ?? pledge.frequency;
-  if (amount !== pledge.amount || frequency !== pledge.frequency) {
+  const amountChanged = amount !== pledge.amount || frequency !== pledge.frequency;
+  if (amountChanged) {
     Object.assign(set, { amount, frequency, monthly: monthlyEquivalent(amount, frequency) });
     // A ₹0 amount was never pledged, just not known yet.
-    if (pledge.amount > 0) {
-      set.amountHistory = [
-        ...(pledge.amountHistory ?? []),
-        { amount: pledge.amount, frequency: pledge.frequency, until: new Date(), by: actor.id },
-      ];
+    if (pledge.amount > 0 && input.amountChange === "from_now") {
+      const history = pledge.amountHistory ?? [];
+      const previous = history.at(-1);
+      if (input.amountFrom && input.amountFrom > istMonth()) throw badRequest("The new amount can start this month at the latest.");
+      if (input.amountFrom && previous && input.amountFrom <= istMonth(previous.until)) {
+        throw badRequest(`The amount last changed in ${istMonth(previous.until)}; the new one has to start after that.`);
+      }
+      const until = input.amountFrom ? startOfIstMonth(input.amountFrom) : new Date();
+      set.amountHistory = [...history, { amount: pledge.amount, frequency: pledge.frequency, until, by: actor.id }];
     }
   }
   if (input.seva !== undefined) set.seva = input.seva;
@@ -254,6 +259,9 @@ export async function edit(actor: Actor, id: ObjectId, input: z.infer<typeof edi
   await audit.record(actor.id, "pledge.edit", "pledge", id, {
     from: Object.fromEntries(changed.map((k) => [k, pledge[k] ?? null])),
     to: Object.fromEntries(changed.map((k) => [k, set[k] ?? null])),
+    ...(amountChanged && pledge.amount > 0
+      ? { amountChange: input.amountChange, ...(input.amountChange === "from_now" ? { amountFrom: input.amountFrom ?? istMonth() } : {}) }
+      : {}),
   });
   return detail(actor, id);
 }

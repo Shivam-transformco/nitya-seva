@@ -18,6 +18,12 @@ export function endOfIstDay(date = new Date()): Date {
   return new Date(ist.getTime() - IST_OFFSET_MS);
 }
 
+/** The first instant of a "YYYY-MM" month in India time. */
+export function startOfIstMonth(month: string): Date {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(y, m - 1, 1) - IST_OFFSET_MS);
+}
+
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** "YYYY-MM" plus `n` months (n may be negative). */

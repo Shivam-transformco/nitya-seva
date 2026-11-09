@@ -12,6 +12,7 @@ import {
   OUTCOME_LABELS,
   STATUSES,
   STATUS_LABELS,
+  addMonthsTo,
   can,
   currentMonth,
   defaultMethod,
@@ -20,6 +21,7 @@ import {
   formatDateTime,
   formatINR,
   monthLabel,
+  monthOf,
   monthsBetweenGifts,
   perLabel,
   plural,
@@ -154,6 +156,8 @@ const detailsForm = (p) => ({
   dueFrom: p.dueFrom ?? "",
   dueDay: p.dueDay ? String(p.dueDay) : "",
   nextFollowUpAt: localInput(p.nextFollowUpAt),
+  amountChange: "",
+  amountFrom: currentMonth(),
 });
 
 const CLOSED = ["lost", "cancelled"];
@@ -164,6 +168,8 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // Changing from ₹0 just fills in the amount; there's nothing earlier to keep.
+  const askAmountChange = p.amount > 0 && (String(form.amount) !== String(p.amount) || form.frequency !== (p.frequency ?? "Monthly"));
 
   async function submit(e) {
     e.preventDefault();
@@ -172,12 +178,18 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
     const amount = Number(form.amount);
     if (!Number.isInteger(amount) || amount < 0) return setError(new Error("Enter the amount in whole rupees, or 0 if not decided."));
     if (!form.name.trim()) return setError(new Error("Enter their name."));
+    if (askAmountChange && !form.amountChange) return setError(new Error("Say whether the new amount fixes a mistake or is a change by the sevak."));
 
     const sevak = {};
     for (const k of ["name", "phone", "email"]) if (form[k].trim() !== was[k]) sevak[k] = form[k].trim();
     const pledge = {};
     if (amount !== p.amount) pledge.amount = amount;
     if (form.frequency !== was.frequency) pledge.frequency = form.frequency;
+    if (askAmountChange) pledge.amountChange = form.amountChange;
+    if (askAmountChange && form.amountChange === "from_now") {
+      if (!form.amountFrom) return setError(new Error("Choose the first month at the new amount."));
+      pledge.amountFrom = form.amountFrom;
+    }
     if (form.seva.trim() !== was.seva) pledge.seva = form.seva.trim();
     if (form.message.trim() !== was.message.trim()) pledge.message = form.message.trim();
     if (form.origin !== was.origin) pledge.origin = form.origin;
@@ -264,10 +276,31 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
             </Field>
           )}
         </div>
+        {askAmountChange && (
+          <fieldset className="p-field">
+            <legend className="p-label">What is this new amount?</legend>
+            <div className="choice-chips">
+              {[
+                ["correction", `Fixing a mistake: ${formatINR(Number(form.amount) || 0)} for every month`],
+                ["from_now", `The sevak changed it: ${formatINR(p.amount)} stays for earlier months`],
+              ].map(([v, l]) => (
+                <label key={v} className={`choice${form.amountChange === v ? " on" : ""}`}>
+                  <input type="radio" name="amountChange" value={v} checked={form.amountChange === v} onChange={set("amountChange")} />
+                  {l}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        {askAmountChange && form.amountChange === "from_now" && (
+          <Field label="New amount from" hint={`${formatINR(p.amount)} is counted for the months before this.`}>
+            <input type="month" max={currentMonth()} required value={form.amountFrom} onChange={set("amountFrom")} />
+          </Field>
+        )}
         <Field label="Their message">
           <textarea rows="3" maxLength={2000} value={form.message} onChange={set("message")} />
         </Field>
-        <p className="p-hint">Name, phone and email change on all of this sevak's pledges. A new amount or frequency keeps the old one in the history.</p>
+        <p className="p-hint">Name, phone and email change on all of this sevak's pledges.</p>
         <ErrorNote error={error} />
         <div className="btn-row">
           <button className="pbtn" disabled={busy}>
@@ -351,7 +384,7 @@ function DetailsCard({ pledge: p, canEdit, canEditOrigin, onChanged }) {
                 {amountText(h.amount, h.frequency)}
                 <span className="p-muted">
                   {" "}
-                  · until {formatDate(h.until)}, changed by {h.byName}
+                  · up to {monthLabel(addMonthsTo(monthOf(h.until), -1))}, changed by {h.byName}
                 </span>
               </li>
             ))}

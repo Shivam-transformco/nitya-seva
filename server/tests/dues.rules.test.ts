@@ -182,6 +182,11 @@ describe("totals", () => {
     expect(t.sevaks.partial).toBe(1);
   });
 
+  it("counts everything paid, even above the pledge", () => {
+    const rows = ledger(pledge(), [{ month: "2026-01", amount: 1500 }], new Map(), all, today);
+    expect(totalsFor("2026-01", [rows[0]!])).toMatchObject({ committed: 1000, collected: 1500, outstanding: 0 });
+  });
+
   it("still lists a missed month after a later one was paid", () => {
     const rows = ledger(pledge(), [{ month: "2026-01", amount: 1000 }, { month: "2026-03", amount: 1000 }], new Map(), all, today);
     expect(missedInRow(rows)).toBe(0);

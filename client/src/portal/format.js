@@ -141,8 +141,10 @@ export function dueLabel(d) {
 }
 
 /** "YYYY-MM" for the current month in IST, matching how the server stores payment months. */
-export const currentMonth = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit" }).format(new Date());
+export const currentMonth = () => monthOf(new Date());
+
+/** "YYYY-MM" an instant falls in, in IST. */
+export const monthOf = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit" }).format(new Date(d));
 
 /** "YYYY-MM" plus `n` months. */
 export function addMonthsTo(month, n) {

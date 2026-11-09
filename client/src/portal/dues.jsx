@@ -66,7 +66,7 @@ export function CommittedTable({ linked }) {
     <section className="p-card">
       <h2>Committed and collected</h2>
       <p className="p-muted">
-        What confirmed sevaks had pledged for each month, what came against it, and what's still owed. Paused sevaks aren't counted; excused months are
+        What confirmed sevaks had pledged for each month, what they paid for it, and what's still owed. Paused sevaks aren't counted; excused months are
         shown apart.
       </p>
       <ErrorNote error={error} />

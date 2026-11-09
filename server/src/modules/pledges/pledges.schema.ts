@@ -53,6 +53,10 @@ export const editPledgeBody = z
   .object({
     amount: amount.optional(),
     frequency: z.enum(FREQUENCIES).optional(),
+    /** A new amount or frequency: fixing a mistake (applies to every month) or the sevak changing it from now (the old one stays for earlier months). */
+    amountChange: z.enum(["correction", "from_now"]).default("from_now"),
+    /** With "from_now": the first month at the new amount (default this month). */
+    amountFrom: month.optional(),
     seva: seva.optional(),
     message: z.string().trim().max(2000).optional(),
     origin: z.enum(PLEDGE_ORIGINS).optional(),
@@ -65,7 +69,7 @@ export const editPledgeBody = z
     /** null clears it. */
     nextFollowUpAt: z.coerce.date().nullable().optional(),
   })
-  .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "nothing to change" });
+  .refine(({ amountChange: _, amountFrom: __, ...b }) => Object.values(b).some((v) => v !== undefined), { message: "nothing to change" });
 
 export const createPledgeBody = z.object({
   name: sevakName,

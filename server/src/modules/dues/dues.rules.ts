@@ -165,7 +165,7 @@ export interface MonthTotals {
   month: string;
   /** Pledged for the month, leaving out paused pledges. */
   committed: number;
-  /** Received against what was pledged (capped at each pledge's amount). */
+  /** Everything these sevaks paid for the month, including more than they pledged. */
   collected: number;
   /** Still to come and not excused. */
   outstanding: number;
@@ -187,7 +187,7 @@ export function totalsFor(month: string, rows: LedgerMonth[]): MonthTotals {
     t.sevaks[r.state]++;
     if (r.state === "paused") continue;
     t.committed += r.expected;
-    t.collected += Math.min(r.paid, r.expected);
+    t.collected += r.paid;
     const gap = Math.max(0, r.expected - r.paid);
     if (r.state === "excused") t.excused += gap;
     else t.outstanding += gap;

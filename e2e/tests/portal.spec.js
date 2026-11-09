@@ -379,7 +379,11 @@ test("staff correct the sevak's details and amount", async () => {
   await form.getByLabel(/^Amount/).fill("1200");
   await form.getByLabel("Next follow-up").fill("2030-02-01T10:00");
   await form.getByRole("button", { name: "Save details" }).click();
+  await expect(form.getByRole("alert")).toContainText("fixes a mistake or is a change by the sevak");
+  await form.getByText(/The sevak changed it: ₹1,100 stays/).click();
+  await form.getByRole("button", { name: "Save details" }).click();
   await expect(devotee.locator(".detail-sub")).toContainText("₹1,200");
+  await expect(devotee.getByText("Earlier amounts (1)")).toBeVisible();
   await expect(details).toContainText("radha.devi@example.org");
   await expect(details).toContainText("1 Feb 2030");
   expect(await publicStats(admin)).toMatchObject({ totalPledged: 1000 });
@@ -654,6 +658,26 @@ test("missed months show up with their reasons, in reports and the overdue list"
   await nav(admin, "Pledges").click();
   await admin.getByRole("tab", { name: "Payment overdue" }).click();
   await expect(admin.getByRole("link", { name: /Late Sevak/ }).locator(".badge-due-missed")).toBeVisible();
+
+  // Fixing a mistyped amount applies to every month and keeps no earlier amount.
+  const fixed = await admin.request.patch(`${API_URL}/api/pledges/${pledgeId}`, { data: { amount: 550, amountChange: "correction" } });
+  expect(fixed.ok()).toBe(true);
+  const after = (await fixed.json()).data;
+  expect(after.amountHistory).toEqual([]);
+  expect(after.dues.months.every((m) => m.state === "excused" || m.expected === 550)).toBe(true);
+
+  // A real change can start in an earlier month; the months before keep the old amount.
+  const raised = await admin.request.patch(`${API_URL}/api/pledges/${pledgeId}`, {
+    data: { amount: 600, amountChange: "from_now", amountFrom: monthsAgo(1) },
+  });
+  expect(raised.ok()).toBe(true);
+  const expectedIn = Object.fromEntries((await raised.json()).data.dues.months.map((m) => [m.month, m.expected]));
+  expect(expectedIn[monthsAgo(1)]).toBe(600);
+  expect(expectedIn[monthsAgo(2)]).toBe(550);
+  const tooEarly = await admin.request.patch(`${API_URL}/api/pledges/${pledgeId}`, {
+    data: { amount: 700, amountChange: "from_now", amountFrom: monthsAgo(2) },
+  });
+  expect(tooEarly.status()).toBe(400);
 });
 
 test("yearly statements list each sevak's payments by financial year", async () => {
